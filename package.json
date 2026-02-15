@@ -1,0 +1,16 @@
+{
+  "name": "cr-12306-train-info",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "tsx src/index.ts"
+  },
+  "keywords": [],
+  "author": "Herbert He<herbert.he0229@gmail.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^25.2.3",
+    "tsx": "^4.21.0"
+  }
+}
