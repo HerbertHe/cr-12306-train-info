@@ -12,5 +12,8 @@
   "devDependencies": {
     "@types/node": "^25.2.3",
     "tsx": "^4.21.0"
+  },
+  "dependencies": {
+    "https-proxy-agent": "^7.0.6"
   }
 }

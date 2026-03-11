@@ -17,11 +17,25 @@ class Spider {
   private trainList: Set<ITrain> = new Set();
 
   /**
+   * 串行写入，避免并发写同一文件
+   */
+  private savePromise = Promise.resolve<void>(undefined);
+
+  /**
+   * 将当前车次列表写入文件（仅当某次请求返回少于 200 条时调用）
+   */
+  private persistTrainList = () => {
+    this.savePromise = this.savePromise.then(() =>
+      saveData(Array.from(this.trainList), "trainList.json"),
+    );
+  };
+
+  /**
    * 运行爬虫
    */
   run = async () => {
     await this.fetchTrainList();
-    saveData(Array.from(this.trainList), "trainList.json");
+    await this.savePromise;
   };
 
   /**
@@ -35,7 +49,7 @@ class Spider {
     for (const trainClass of TRAIN_CLASS_LIST) {
       for (let i = 1; i <= 9; i++) {
         console.log(`获取车次列表, ${trainClass}${i}`);
-        promises.push(this.processTrainList(`${trainClass}${i}`, "20260217"));
+        promises.push(this.processTrainList(`${trainClass}${i}`, "20260316"));
       }
     }
 
@@ -68,13 +82,13 @@ class Spider {
       return;
     }
 
-    // 数据小于 200，完整数据
+    // 某次请求少于 200 条，视为该前缀数据完整，写入文件
     if (trainList.length < PAGE_SIZE) {
       console.log(`${prefix} 车次列表获取完成，数据小于 200，完整数据存入`);
       trainList.forEach((train) => {
         this.trainList.add(train);
       });
-
+      this.persistTrainList();
       return;
     }
 

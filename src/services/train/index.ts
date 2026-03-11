@@ -5,7 +5,7 @@ import { safeRequest } from "../../utils";
 /**
  * 查询车次列表
  * @param keyword 车次关键字
- * @param date 日期 20260215
+ * @param date 日期 20260316
  * @returns
  */
 export const queryTrainListByKeywordAndDate = async (
