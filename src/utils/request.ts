@@ -25,179 +25,315 @@ const DEFAULT_HEADERS: HeadersInit = {
   "sec-ch-ua-platform": '"macOS"',
 };
 
-/** 免费代理池配置（使用 GitHub 免费 http 代理列表，完全免费、无需注册） */
-const PROXY_LIST_URL =
-  "https://raw.githubusercontent.com/hw630590/free-proxies/refs/heads/main/proxies/http/http.txt";
-
-// 简单内存代理池
-let proxyPool: string[] = [];
-let proxyIndex = -1;
-
-// 从 GitHub 拉取一批免费代理，格式为 ip:port，每行一个
-const loadProxyPool = async (): Promise<void> => {
-  try {
-    const rsp = await fetch(PROXY_LIST_URL);
-    if (!rsp.ok) return;
-    const text = await rsp.text();
-    const lines = text
-      .split("\n")
-      .map((l) => l.trim())
-      .filter((l) => l && l.includes(":"));
-
-    if (lines.length) {
-      proxyPool = lines;
-      proxyIndex = -1;
-    }
-  } catch {
-    // 忽略代理池加载错误，后续重试会再次拉取
-  }
-};
-
-const getNextProxyUrl = async (): Promise<string | null> => {
-  if (!proxyPool.length) {
-    await loadProxyPool();
-    if (!proxyPool.length) return null;
-  }
-
-  proxyIndex = (proxyIndex + 1) % proxyPool.length;
-  const ipPort = proxyPool[proxyIndex]; // 形如 "ip:port"
-  return `http://${ipPort}`;
-};
-
-/** 单次请求（仅通过代理），失败抛错或返回非 success 结果 */
-const doOneRequest = async <T = any>(
-  url: string,
-  mergedHeaders: Headers,
-  options: RequestInit,
-  proxyUrl: string,
-): Promise<API.IResponse<T>> => {
-  const fetchOptions: RequestInit & { agent?: any } = {
-    ...options,
-    headers: mergedHeaders,
-  };
-
-  const agent = new HttpsProxyAgent(proxyUrl);
-  (fetchOptions as any).agent = agent;
-
-  const rsp = await fetch(url, fetchOptions);
-
-  let result: API.IResponse<T>;
-  try {
-    if (!rsp.ok) {
-      result = {
-        code: rsp.status,
-        success: false,
-        message: rsp.statusText,
-      } as API.IResponse<T>;
-    } else {
-      const data = await rsp.json();
-      result = {
-        code: rsp.status,
-        success: true,
-        data: data?.data as T,
-        message: data?.message || rsp.statusText,
-      } as API.IResponse<T>;
-    }
-  } catch {
-    const data = await rsp.text().catch(() => "");
-    result = {
-      code: rsp.status,
-      success: false,
-      data: data as string,
-      message: rsp.statusText,
-    } as API.IResponse<T>;
-  }
-
-  console.log("[返回值]", JSON.stringify(result, null, 2));
-  return result;
-};
-
-/** 代理/请求最大重试次数（全部使用代理，无直连） */
+/** 代理/请求最大重试次数 */
 const MAX_REQUEST_RETRIES = 5;
 
 /**
- * 请求（全部走代理，失败则换代理重试，直到成功或用尽次数）
- * @param url 请求地址
- * @param options 请求选项（headers 会与浏览器默认头合并，传入的优先）
- * @returns 响应（成功或最后一次失败结果）
+ * 代理池与请求封装：拉取与校验代理、按偏移分散请求、失败入队与重试。
+ * 偏移量超过代理池大小时自动从头开始使用（取模）。
  */
-export const request = async <T = any>(
-  url: string,
-  options: RequestInit = {},
-): Promise<API.IResponse<T>> => {
-  const mergedHeaders = new Headers(DEFAULT_HEADERS);
-  const customHeaders = new Headers(options?.headers);
-  customHeaders.forEach((value, key) => mergedHeaders.set(key, value));
+export class ProxyPoolManager {
+  private readonly proxyListUrl: string;
+  private readonly validateUrl: string;
+  private readonly validateTimeoutMs: number;
+  private readonly validateConcurrency: number;
 
-  let lastResult: API.IResponse<T> | null = null;
+  private pool: string[] = [];
+  /** 请求序号，用于按偏移分配代理；取代理时用 offset % pool.length，超过最大值则从头开始 */
+  private requestCounter = 0;
+  private failedQueue: Array<{ url: string; options: RequestInit }> = [];
 
-  console.log("[请求]", { url, method: options.method || "GET" });
+  constructor(options: {
+    proxyListUrl?: string;
+    validateUrl?: string;
+    validateTimeoutMs?: number;
+    validateConcurrency?: number;
+  } = {}) {
+    this.proxyListUrl =
+      options.proxyListUrl ??
+      "https://raw.githubusercontent.com/hw630590/free-proxies/refs/heads/main/proxies/http/http.txt";
+    this.validateUrl = options.validateUrl ?? "https://www.baidu.com";
+    this.validateTimeoutMs = options.validateTimeoutMs ?? 8000;
+    this.validateConcurrency = options.validateConcurrency ?? 15;
+  }
 
-  for (let i = 0; i < MAX_REQUEST_RETRIES; i++) {
-    const proxyUrl = await getNextProxyUrl();
+  /** 校验单个代理是否可用 */
+  private async validateProxy(proxyUrl: string): Promise<boolean> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.validateTimeoutMs);
+    try {
+      const agent = new HttpsProxyAgent(proxyUrl);
+      const rsp = await fetch(this.validateUrl, {
+        method: "GET",
+        // @ts-ignore agent 用于 Node fetch
+        agent,
+        signal: controller.signal,
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        },
+      });
+      return rsp.ok;
+    } catch {
+      return false;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
 
-    if (!proxyUrl) {
-      console.log(`[请求] 第 ${i + 1}/${MAX_REQUEST_RETRIES} 次 无可用代理，跳过`);
-      lastResult = {
+  private async validateProxyList(ipPortList: string[]): Promise<string[]> {
+    const results: string[] = [];
+    let i = 0;
+    while (i < ipPortList.length) {
+      const batch = ipPortList.slice(i, i + this.validateConcurrency);
+      i += this.validateConcurrency;
+      const settled = await Promise.allSettled(
+        batch.map(async (ipPort) => {
+          const ok = await this.validateProxy(`http://${ipPort}`);
+          return { ipPort, ok };
+        }),
+      );
+      for (const s of settled) {
+        if (s.status === "fulfilled" && s.value.ok) {
+          results.push(s.value.ipPort);
+        }
+      }
+    }
+    return results;
+  }
+
+  /** 从远端拉取代理列表并用校验地址过滤不可用代理 */
+  async loadPool(): Promise<void> {
+    try {
+      const rsp = await fetch(this.proxyListUrl);
+      if (!rsp.ok) return;
+      const text = await rsp.text();
+      const lines = text
+        .split("\n")
+        .map((l) => l.trim())
+        .filter((l) => l && l.includes(":"));
+
+      if (lines.length) {
+        console.log(
+          `[代理池] 拉取到 ${lines.length} 个代理，正在用 ${this.validateUrl} 校验可用性...`,
+        );
+        const valid = await this.validateProxyList(lines);
+        this.pool = valid;
+        console.log(`[代理池] 校验完成，可用 ${this.pool.length}/${lines.length} 个`);
+      }
+    } catch {
+      // 忽略代理池加载错误，后续重试会再次拉取
+    }
+  }
+
+  /** 确保代理池已加载，返回当前池大小 */
+  async ensurePool(): Promise<number> {
+    if (!this.pool.length) await this.loadPool();
+    return this.pool.length;
+  }
+
+  /**
+   * 按索引取代理。索引超过池大小时取模，从头开始使用代理池。
+   */
+  getProxyUrlByIndex(index: number): string | null {
+    if (!this.pool.length) return null;
+    const normalizedIndex = index % this.pool.length;
+    const ipPort = this.pool[normalizedIndex];
+    return ipPort ? `http://${ipPort}` : null;
+  }
+
+  /**
+   * 为本次请求分配偏移（用于分散到不同代理）；取代理时会用该偏移对池大小取模。
+   */
+  takeRequestOffset(): number {
+    return this.requestCounter++;
+  }
+
+  private async doOneRequest<T = any>(
+    url: string,
+    mergedHeaders: Headers,
+    options: RequestInit,
+    proxyUrl: string,
+  ): Promise<API.IResponse<T>> {
+    const fetchOptions: RequestInit & { agent?: any } = {
+      ...options,
+      headers: mergedHeaders,
+    };
+
+    const agent = new HttpsProxyAgent(proxyUrl);
+    (fetchOptions as any).agent = agent;
+
+    const rsp = await fetch(url, fetchOptions);
+
+    let result: API.IResponse<T>;
+    try {
+      if (!rsp.ok) {
+        result = {
+          code: rsp.status,
+          success: false,
+          message: rsp.statusText,
+        } as API.IResponse<T>;
+      } else {
+        const data = await rsp.json();
+        result = {
+          code: rsp.status,
+          success: true,
+          data: data?.data as T,
+          message: data?.message || rsp.statusText,
+        } as API.IResponse<T>;
+      }
+    } catch {
+      const data = await rsp.text().catch(() => "");
+      result = {
+        code: rsp.status,
+        success: false,
+        data: data as string,
+        message: rsp.statusText,
+      } as API.IResponse<T>;
+    }
+
+    console.log("[返回值]", JSON.stringify(result, null, 2));
+    return result;
+  }
+
+  /**
+   * 请求：按请求序号从代理池偏移取代理（偏移超过池大小时从头开始），失败则换下一个代理重试。
+   * 用尽重试仍失败时加入失败队列，可后续通过 retryFailedRequests() 重新执行。
+   * 依赖在程序开始时已调用 ensurePool() 加载代理池，此处不再发起加载请求。
+   */
+  async request<T = any>(
+    url: string,
+    options: RequestInit = {},
+  ): Promise<API.IResponse<T>> {
+    const poolSize = this.pool.length;
+    if (!poolSize) {
+      const fail: API.IResponse<T> = {
         code: 0,
         success: false,
         message: "无可用代理",
       } as API.IResponse<T>;
-      await sleep(500, 1500);
-      continue;
+      this.failedQueue.push({ url, options });
+      return fail;
     }
 
-    console.log(`[请求] 第 ${i + 1}/${MAX_REQUEST_RETRIES} 次`, { url, proxy: proxyUrl });
+    const mergedHeaders = new Headers(DEFAULT_HEADERS);
+    const customHeaders = new Headers(options?.headers);
+    customHeaders.forEach((value, key) => mergedHeaders.set(key, value));
 
-    try {
-      const result = await doOneRequest<T>(
-        url,
-        mergedHeaders,
-        options,
-        proxyUrl,
-      );
-      lastResult = result;
+    const baseOffset = this.takeRequestOffset();
+    const effectiveOffset = baseOffset % poolSize;
+    let lastResult: API.IResponse<T> | null = null;
 
-      if (result.success) {
-        console.log("请求成功:", url);
-        return result;
+    console.log("[请求]", {
+      url,
+      method: options.method || "GET",
+      proxyOffset: effectiveOffset,
+      poolSize,
+    });
+
+    for (let i = 0; i < MAX_REQUEST_RETRIES; i++) {
+      const proxyUrl = this.getProxyUrlByIndex(baseOffset + i);
+      if (!proxyUrl) {
+        console.log(
+          `[请求] 第 ${i + 1}/${MAX_REQUEST_RETRIES} 次 无可用代理，跳过`,
+        );
+        lastResult = {
+          code: 0,
+          success: false,
+          message: "无可用代理",
+        } as API.IResponse<T>;
+        await sleep(500, 1500);
+        continue;
       }
 
-      console.log(`请求未成功 (${i + 1}/${MAX_REQUEST_RETRIES}):`, result.message);
-    } catch (err) {
-      console.log(
-        `代理/请求异常 (${i + 1}/${MAX_REQUEST_RETRIES}):`,
-        err instanceof Error ? err.message : String(err),
-      );
-      lastResult = {
-        code: 0,
-        success: false,
-        message: err instanceof Error ? err.message : String(err),
-      } as API.IResponse<T>;
+      console.log(`[请求] 第 ${i + 1}/${MAX_REQUEST_RETRIES} 次`, {
+        url,
+        proxy: proxyUrl,
+      });
+
+      try {
+        const result = await this.doOneRequest<T>(
+          url,
+          mergedHeaders,
+          options,
+          proxyUrl,
+        );
+        lastResult = result;
+
+        if (result.success) {
+          console.log("请求成功:", url);
+          return result;
+        }
+
+        console.log(
+          `请求未成功 (${i + 1}/${MAX_REQUEST_RETRIES}):`,
+          result.message,
+        );
+      } catch (err) {
+        console.log(
+          `代理/请求异常 (${i + 1}/${MAX_REQUEST_RETRIES}):`,
+          err instanceof Error ? err.message : String(err),
+        );
+        lastResult = {
+          code: 0,
+          success: false,
+          message: err instanceof Error ? err.message : String(err),
+        } as API.IResponse<T>;
+      }
+
+      if (i < MAX_REQUEST_RETRIES - 1) {
+        await sleep(500, 1500);
+      }
     }
 
-    if (i < MAX_REQUEST_RETRIES - 1) {
-      await sleep(500, 1500);
-    }
+    console.log("已达最大重试次数，记录到失败队列，稍后重试:", url);
+    this.failedQueue.push({ url, options });
+    return lastResult!;
   }
 
-  console.log("已达最大重试次数，返回最后一次结果:", url);
-  return lastResult!;
-};
+  /** 安全请求：随机休眠后发起请求，从代理池按偏移分散 */
+  async safeRequest<T = any>(
+    url: string,
+    options: RequestInit = {},
+  ): Promise<API.IResponse<T>> {
+    await sleep(1000, 5000);
+    return this.request<T>(url, options);
+  }
 
-/**
- * 安全爬虫
- * @param url
- * @param options
- * @returns
- */
-export const safeRequest = async <T = any>(
-  url: string,
-  options: RequestInit = {},
-) => {
-  // 安全休眠
-  await sleep(1000, 5000);
+  getFailedQueueLength(): number {
+    return this.failedQueue.length;
+  }
 
-  // 请求
-  return await request<T>(url, options);
-};
+  /**
+   * 将失败队列中的请求按偏移分散重新执行一次，并清空当前失败队列。
+   */
+  async retryFailedRequests(): Promise<API.IResponse<any>[]> {
+    if (this.failedQueue.length === 0) return [];
+    const todo = this.failedQueue.splice(0, this.failedQueue.length);
+    console.log(
+      `[重试] 开始重试 ${todo.length} 个失败请求（按代理池偏移分散）`,
+    );
+    const results: API.IResponse<any>[] = [];
+    for (const { url, options } of todo) {
+      await sleep(300, 800);
+      const r = await this.request(url, options);
+      results.push(r);
+      if (r.success) console.log("[重试] 成功:", url);
+      else console.log("[重试] 仍失败:", url);
+    }
+    return results;
+  }
+}
+
+const defaultProxyPool = new ProxyPoolManager();
+
+/** 在程序开始时调用一次，加载并校验代理池，后续 request 不再发起加载请求 */
+export const ensureProxyPool = (): Promise<number> =>
+  defaultProxyPool.ensurePool();
+
+export const request = defaultProxyPool.request.bind(defaultProxyPool);
+export const safeRequest = defaultProxyPool.safeRequest.bind(defaultProxyPool);
+export const getFailedQueueLength =
+  defaultProxyPool.getFailedQueueLength.bind(defaultProxyPool);
+export const retryFailedRequests =
+  defaultProxyPool.retryFailedRequests.bind(defaultProxyPool);

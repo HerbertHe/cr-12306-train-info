@@ -1,15 +1,15 @@
 import { queryTrainListByKeywordAndDate } from "./services/train";
 import { ITrain } from "./services/train/model";
 
-import { saveData, TaskScheduler } from "./utils";
+import { saveData, TaskScheduler, ensureProxyPool, getFailedQueueLength, retryFailedRequests } from "./utils";
 import { PAGE_SIZE, TRAIN_CLASS_LIST } from "./constants";
 
 class Spider {
   /**
    * 任务调度器
-   * 最多同时执行 6 个任务
+   * 最多同时执行 100 个任务
    */
-  private taskScheduler = new TaskScheduler(6);
+  private taskScheduler = new TaskScheduler(100);
 
   /**
    * 车次列表
@@ -31,10 +31,16 @@ class Spider {
   };
 
   /**
-   * 运行爬虫
+   * 运行爬虫（主请求 + 失败请求按偏移分散重试，直到无失败或达最大轮数）
    */
   run = async () => {
+    await ensureProxyPool();
     await this.fetchTrainList();
+    const maxRetryRounds = 3;
+    for (let round = 0; round < maxRetryRounds && getFailedQueueLength() > 0; round++) {
+      console.log(`[重试轮次 ${round + 1}/${maxRetryRounds}] 重试 ${getFailedQueueLength()} 个失败请求`);
+      await retryFailedRequests();
+    }
     await this.savePromise;
   };
 
