@@ -24,6 +24,11 @@ jobs:
         with:
           node-version: "20"
 
+      - name: Download proxies.txt from latest release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release download proxies-latest --repo "$GITHUB_REPOSITORY" --pattern "proxies.txt" --dir .
+
       - name: Install dependencies
         run: npm install
 

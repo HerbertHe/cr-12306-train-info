@@ -1,5 +1,8 @@
 /// <reference path="../typing.d.ts" />
 
+import fs from "fs";
+import path from "path";
+
 import { HttpsProxyAgent } from "https-proxy-agent";
 import { sleep } from "./sleep";
 
@@ -37,6 +40,7 @@ export class ProxyPoolManager {
   private readonly validateUrl: string;
   private readonly validateTimeoutMs: number;
   private readonly validateConcurrency: number;
+  private readonly localFilePath?: string;
 
   private pool: string[] = [];
   /** 请求序号，用于按偏移分配代理；取代理时用 offset % pool.length，超过最大值则从头开始 */
@@ -48,6 +52,7 @@ export class ProxyPoolManager {
     validateUrl?: string;
     validateTimeoutMs?: number;
     validateConcurrency?: number;
+    localFilePath?: string;
   } = {}) {
     this.proxyListUrl =
       options.proxyListUrl ??
@@ -55,6 +60,7 @@ export class ProxyPoolManager {
     this.validateUrl = options.validateUrl ?? "https://www.baidu.com";
     this.validateTimeoutMs = options.validateTimeoutMs ?? 8000;
     this.validateConcurrency = options.validateConcurrency ?? 15;
+    this.localFilePath = options.localFilePath;
   }
 
   /** 校验单个代理是否可用 */
@@ -74,14 +80,10 @@ export class ProxyPoolManager {
         },
       });
       if (rsp.ok) {
-        console.log(`[代理池] 校验通过: ${proxyUrl}`);
         return true;
       }
-      console.log(`[代理池] 校验未通过: ${proxyUrl}, status=${rsp.status}`);
       return false;
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      console.log(`[代理池] 校验失败: ${proxyUrl}, 错误: ${msg}`);
       return false;
     } finally {
       clearTimeout(timeoutId);
@@ -109,9 +111,29 @@ export class ProxyPoolManager {
     return results;
   }
 
-  /** 从远端拉取代理列表并用校验地址过滤不可用代理 */
+  /** 拉取代理列表：优先从本地文件读取；若未配置本地文件，则从远端拉取并用校验地址过滤不可用代理 */
   async loadPool(): Promise<void> {
     try {
+      // 优先从本地文件加载（运行爬虫时只读取已验证结果，不再重复校验）
+      if (this.localFilePath) {
+        const filePath = path.isAbsolute(this.localFilePath)
+          ? this.localFilePath
+          : path.join(process.cwd(), this.localFilePath);
+        if (!fs.existsSync(filePath)) {
+          console.log(`[代理池] 本地代理文件不存在: ${filePath}`);
+          return;
+        }
+        const text = fs.readFileSync(filePath, "utf-8");
+        const lines = text
+          .split("\n")
+          .map((l) => l.trim())
+          .filter((l) => l && l.includes(":"));
+        this.pool = lines;
+        console.log(`[代理池] 从本地文件加载 ${this.pool.length} 个代理: ${filePath}`);
+        return;
+      }
+
+      // 未配置本地文件时，从远端拉取并进行校验（用于单独的代理验证脚本）
       const rsp = await fetch(this.proxyListUrl);
       if (!rsp.ok) return;
       const text = await rsp.text();
@@ -121,12 +143,15 @@ export class ProxyPoolManager {
         .filter((l) => l && l.includes(":"));
 
       if (lines.length) {
-        console.log(
-          `[代理池] 拉取到 ${lines.length} 个代理，正在用 ${this.validateUrl} 校验可用性...`,
-        );
+        const start = Date.now();
         const valid = await this.validateProxyList(lines);
         this.pool = valid;
-        console.log(`[代理池] 校验完成，可用 ${this.pool.length}/${lines.length} 个`);
+        const durationMs = Date.now() - start;
+        const successCount = this.pool.length;
+        const failCount = lines.length - successCount;
+        console.log(
+          `[代理池] 校验统计 => 成功: ${successCount} 个, 失败: ${failCount} 个, 耗时: ${durationMs} ms`,
+        );
       }
     } catch {
       // 忽略代理池加载错误，后续重试会再次拉取
@@ -147,6 +172,11 @@ export class ProxyPoolManager {
     const normalizedIndex = index % this.pool.length;
     const ipPort = this.pool[normalizedIndex];
     return ipPort ? `http://${ipPort}` : null;
+  }
+
+  /** 获取当前代理池快照（仅返回 IP:PORT 字符串，不带协议） */
+  getPoolSnapshot(): string[] {
+    return [...this.pool];
   }
 
   /**
@@ -332,7 +362,10 @@ export class ProxyPoolManager {
   }
 }
 
-const defaultProxyPool = new ProxyPoolManager();
+const defaultProxyPool = new ProxyPoolManager({
+  // 运行爬虫时仅使用已验证的本地代理文件，不再重复远程校验
+  localFilePath: "proxies.txt",
+});
 
 /** 在程序开始时调用一次，加载并校验代理池，后续 request 不再发起加载请求 */
 export const ensureProxyPool = (): Promise<number> =>
@@ -344,3 +377,6 @@ export const getFailedQueueLength =
   defaultProxyPool.getFailedQueueLength.bind(defaultProxyPool);
 export const retryFailedRequests =
   defaultProxyPool.retryFailedRequests.bind(defaultProxyPool);
+
+export const getProxyPoolSnapshot =
+  defaultProxyPool.getPoolSnapshot.bind(defaultProxyPool);

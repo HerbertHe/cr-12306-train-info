@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "tsx src/index.ts"
+    "dev": "tsx src/index.ts",
+    "check-proxies": "tsx src/validate_proxies.ts"
   },
   "keywords": [],
   "author": "Herbert He<herbert.he0229@gmail.com>",

@@ -1,0 +1,39 @@
+name: Check Proxies
+
+on:
+  schedule:
+    # 每天北京时间 05:00（即 UTC 前一天 21:00）
+    - cron: "0 21 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check-proxies:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run proxy validation
+        run: npm run check-proxies
+
+      - name: Create / Update proxies release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: proxies-latest
+          name: Latest validated proxies
+          body: Daily validated proxy list
+          files: proxies.txt
