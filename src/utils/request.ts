@@ -73,8 +73,15 @@ export class ProxyPoolManager {
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         },
       });
-      return rsp.ok;
-    } catch {
+      if (rsp.ok) {
+        console.log(`[代理池] 校验通过: ${proxyUrl}`);
+        return true;
+      }
+      console.log(`[代理池] 校验未通过: ${proxyUrl}, status=${rsp.status}`);
+      return false;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.log(`[代理池] 校验失败: ${proxyUrl}, 错误: ${msg}`);
       return false;
     } finally {
       clearTimeout(timeoutId);

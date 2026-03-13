@@ -1,6 +1,6 @@
 import { ITrain, ITrainStationResponseViaTrainNoAndDateList } from "./model";
 
-import { safeRequest } from "../../utils";
+import { request } from "../../utils";
 
 /**
  * 查询车次列表
@@ -12,7 +12,7 @@ export const queryTrainListByKeywordAndDate = async (
   keyword: string,
   date: string,
 ) => {
-  return safeRequest<ITrain[]>(
+  return request<ITrain[]>(
     `https://search.12306.cn/search/v1/train/search?keyword=${keyword}&date=${date}`,
     {
       method: "GET",
@@ -30,10 +30,8 @@ export const queryTrainDetailByTrainNoAndDate = (
   trainNo: string,
   date: string,
 ) => {
-  return safeRequest<{
-    data: {
-      data: ITrainStationResponseViaTrainNoAndDateList;
-    };
+  return request<{
+    data: ITrainStationResponseViaTrainNoAndDateList;
   }>(
     `https://kyfw.12306.cn/otn/queryTrainInfo/query?leftTicketDTO.train_no=${trainNo}&leftTicketDTO.train_date=${date}&rand_code=`,
     {

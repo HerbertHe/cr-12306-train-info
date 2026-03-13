@@ -1,18 +1,26 @@
 import fs from "fs";
 import path from "path";
 
-import { queryTrainListByKeywordAndDate } from "./services/train";
-import { ITrain } from "./services/train/model";
+import {
+  queryTrainListByKeywordAndDate,
+  queryTrainDetailByTrainNoAndDate,
+} from "./services/train";
+import {
+  ITrain,
+  ITrainStationResponseViaTrainNoAndDateList,
+  ITrainStationResponseFirstViaTrainNoAndDate,
+  ITrainStationResponseViaTrainNoAndDate,
+} from "./services/train/model";
 
-import { saveData, TaskScheduler, ensureProxyPool, getFailedQueueLength, retryFailedRequests } from "./utils";
+import { TaskScheduler, ensureProxyPool, getFailedQueueLength, retryFailedRequests } from "./utils";
 import { PAGE_SIZE, TRAIN_CLASS_LIST } from "./constants";
 
 class Spider {
   /**
    * 任务调度器
-   * 最多同时执行 100 个任务
+   * 最多同时执行 300 个任务
    */
-  private taskScheduler = new TaskScheduler(100);
+  private taskScheduler = new TaskScheduler(300);
 
   /**
    * 车次列表
@@ -25,48 +33,36 @@ class Spider {
   private trainListFilteredByTrainNo: Set<ITrain> = new Set();
 
   /**
+   * 车次详情数组（车号 + 站点列表，车站名已去空格）
+   */
+  private trainDetailList: {
+    train_no: string;
+    data: ITrainStationResponseViaTrainNoAndDateList;
+  }[] = [];
+
+  /**
    * 串行写入，避免并发写同一文件
    */
   private savePromise = Promise.resolve<void>(void 0);
 
   /**
    * 将当前车次列表写入文件（仅当某次请求返回少于 200 条时调用）
+   * 写入路径与车次详情一致：dist/train_list_YYYYMMDD.json
    */
   private persistTrainList = () => {
-    this.savePromise = this.savePromise.then(() =>
-      saveData(Array.from(this.trainList), "trainList.json"),
-    );
-  };
-
-  /**
-   * 从 dist/data/trainList.json 加载车次列表（用于本地测试）
-   */
-  private loadTrainListFromDist = (): boolean => {
-    const dataPath = path.join(process.cwd(), "dist", "data", "trainList.json");
-    if (!fs.existsSync(dataPath)) {
-      return false;
-    }
-    const raw = fs.readFileSync(dataPath, "utf-8");
-    const data = JSON.parse(raw) as ITrain[];
-    this.trainList.clear();
-    data.forEach((t) => this.trainList.add(t));
-    console.log(`已从 dist 加载车次列表, 共 ${this.trainList.size} 条`);
-    return true;
+    this.savePromise = this.savePromise.then(() => {
+      const distDir = path.join(process.cwd(), "dist");
+      if (!fs.existsSync(distDir)) fs.mkdirSync(distDir, { recursive: true });
+      const date = this.getTargetDate();
+      const jsonPath = path.join(distDir, `train_list_${date}.json`);
+      fs.writeFileSync(jsonPath, JSON.stringify(Array.from(this.trainList), null, 2), "utf-8");
+    });
   };
 
   /**
    * 运行爬虫（主请求 + 失败请求按偏移分散重试，直到无失败或达最大轮数）
-   * 若环境变量 USE_DIST_DATA=1 则使用 dist/data/trainList.json 本地数据仅执行 processTrainListData
    */
   run = async () => {
-    if (process.env.USE_DIST_DATA === "1") {
-      if (!this.loadTrainListFromDist()) {
-        console.error("dist/data/trainList.json 不存在，无法使用本地数据测试");
-        return;
-      }
-      await this.processTrainListData();
-      return;
-    }
     await ensureProxyPool();
     await this.fetchTrainList();
     const maxRetryRounds = 3;
@@ -76,19 +72,35 @@ class Spider {
     }
     await this.savePromise;
     await this.processTrainListData();
+    await this.fetchTrainDetails();
+    await this.processTrainDetailData();
+  };
+
+  /**
+   * 获取目标日期（当前日期 + 13 天），格式：YYYYMMDD
+   */
+  private getTargetDate = (): string => {
+    const d = new Date();
+    d.setDate(d.getDate() + 13);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}${m}${day}`;
   };
 
   /**
    * 获取所有车次列表
    * 遍历所有车次等级，每个车次等级遍历 0 - 9 的编号
+   * 日期默认使用当前日期 + 13 天
    */
   private fetchTrainList = async () => {
     const startTime = process.hrtime();
     const promises: Promise<void>[] = [];
+    const date = this.getTargetDate();
 
     for (const trainClass of TRAIN_CLASS_LIST) {
       for (let i = 1; i <= 9; i++) {
-        promises.push(this.processTrainList(`${trainClass}${i}`, "20260316"));
+        promises.push(this.processTrainList(`${trainClass}${i}`, date));
       }
     }
 
@@ -96,6 +108,40 @@ class Spider {
 
     const endTime = process.hrtime(startTime);
     console.log(`获取车次列表完成, 耗时: ${endTime[0]}s ${endTime[1] / 1000000}ms`);
+  };
+
+  /**
+   * 去除始发站/终到站前后及中间所有空格
+   */
+  private normalizeStation = (s: string): string =>
+    s.replace(/\s+/g, "");
+
+  /**
+   * 车次详情 API 所需日期格式：20260316 -> 2026-03-16
+   */
+  private formatDateForDetail = (date: string): string =>
+    `${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6, 8)}`;
+
+  /**
+   * 对车次详情站点列表中的车站名去空格（station_name，首项还有 start_station_name、end_station_name）
+   */
+  private normalizeDetailList = (
+    list: ITrainStationResponseViaTrainNoAndDateList,
+  ): ITrainStationResponseViaTrainNoAndDateList => {
+    const [first, ...rest] = list;
+    const normFirst: ITrainStationResponseFirstViaTrainNoAndDate = {
+      ...first,
+      station_name: this.normalizeStation(first.station_name),
+      start_station_name: this.normalizeStation(first.start_station_name),
+      end_station_name: this.normalizeStation(first.end_station_name),
+    };
+    const normRest: ITrainStationResponseViaTrainNoAndDate[] = rest.map(
+      (item) => ({
+        ...item,
+        station_name: this.normalizeStation(item.station_name),
+      }),
+    );
+    return [normFirst, ...normRest];
   };
 
   /**
@@ -121,11 +167,17 @@ class Spider {
       return;
     }
 
+    const normalizedTrain = (t: ITrain): ITrain => ({
+      ...t,
+      from_station: this.normalizeStation(t.from_station),
+      to_station: this.normalizeStation(t.to_station),
+    });
+
     // 某次请求少于 200 条，视为该前缀数据完整，写入文件
     if (trainList.length < PAGE_SIZE) {
       console.log(`${prefix} 车次列表获取完成，数据小于 200，完整数据存入`);
       trainList.forEach((train) => {
-        this.trainList.add(train);
+        this.trainList.add(normalizedTrain(train));
       });
       this.persistTrainList();
       return;
@@ -138,7 +190,7 @@ class Spider {
 
     if (exactMatchTrain) {
       console.log(`存入精确匹配项目, ${prefix}`);
-      this.trainList.add(exactMatchTrain);
+      this.trainList.add(normalizedTrain(exactMatchTrain));
     }
 
     // 递归拆分任务
@@ -165,10 +217,12 @@ class Spider {
     }
 
     // 同车号只取第一项；构建表格行（站点车次用 / 合并）
-    const trainTypeOrder = ["G", "D", "C", "K", "Z", "T", "Y", "S"] as const;
+    const trainTypeOrder: string[] = ["G", "D", "C", "K", "Z", "T", "Y", "S"];
     const getTrainTypeRank = (code: string) => {
       const type = code.charAt(0).toUpperCase();
-      const idx = trainTypeOrder.indexOf(type);
+      const idx = trainTypeOrder.indexOf(
+        type as (typeof trainTypeOrder)[number],
+      );
       return idx >= 0 ? idx : trainTypeOrder.length;
     };
 
@@ -182,17 +236,19 @@ class Spider {
     }[] = [];
 
     for (const [, trains] of byTrainNo) {
-      const first = trains[0];
+      // 车号包含站点车次的作为记录，若无则取第一条
+      const chosen =
+        trains.find((t) => t.train_no.includes(t.station_train_code)) ?? trains[0];
       const stationTrainCodes = [...new Set(trains.map((t) => t.station_train_code))]
         .sort()
         .join("/");
       tableRows.push({
-        from_station: first.from_station,
-        to_station: first.to_station,
-        total_num: first.total_num,
-        train_no: first.train_no,
+        from_station: chosen.from_station,
+        to_station: chosen.to_station,
+        total_num: chosen.total_num,
+        train_no: chosen.train_no,
         station_train_code: stationTrainCodes,
-        first,
+        first: chosen,
       });
     }
 
@@ -224,8 +280,107 @@ class Spider {
     if (!fs.existsSync(distDir)) {
       fs.mkdirSync(distDir, { recursive: true });
     }
-    const mdPath = path.join(distDir, "train_list.md");
+    const date = this.getTargetDate();
+    const mdPath = path.join(distDir, `train_list_${date}.md`);
     fs.writeFileSync(mdPath, md, "utf-8");
+  };
+
+  /**
+   * 根据 trainListFilteredByTrainNo 获取车次详情并写入 trainDetailList（车站名已去空格）
+   */
+  private fetchTrainDetails = async () => {
+    const list = Array.from(this.trainListFilteredByTrainNo);
+    this.trainDetailList = [];
+    const startTime = process.hrtime();
+    for (const train of list) {
+      const dateStr = this.formatDateForDetail(train.date);
+      const rsp = await this.taskScheduler.add(() =>
+        queryTrainDetailByTrainNoAndDate(train.train_no, dateStr),
+      );
+      const rawList =
+        rsp.success && Array.isArray(rsp.data?.data)
+          ? (rsp.data.data as unknown as ITrainStationResponseViaTrainNoAndDateList)
+          : null;
+      if (!rawList?.length) continue;
+      this.trainDetailList.push({
+        train_no: train.train_no,
+        data: this.normalizeDetailList(rawList),
+      });
+    }
+    const endTime = process.hrtime(startTime);
+    console.log(
+      `获取车次详情完成, 共 ${this.trainDetailList.length} 条, 耗时: ${endTime[0]}s ${endTime[1] / 1000000}ms`,
+    );
+  };
+
+  /**
+   * 根据 trainDetailList 生成车次详情 markdown 表格到 dist/train_detail.md
+   * 表格：序号、车号、站点车次、站点信息（同一车次合并为一行，格式 车站(到站时间 - 发车时间 - 运行时间 - 到达日)，多站用 / 分隔）
+   */
+  private processTrainDetailData = async () => {
+    const trainTypeOrder = ["G", "D", "C", "K", "Z", "T", "Y", "S"] as const;
+    const getTrainTypeRank = (code: string) => {
+      const type = code.charAt(0).toUpperCase();
+      const idx = trainTypeOrder.indexOf(
+        type as (typeof trainTypeOrder)[number],
+      );
+      return idx >= 0 ? idx : trainTypeOrder.length;
+    };
+
+    type MergedDetailRow = {
+      train_no: string;
+      station_train_code: string;
+      stationsCell: string;
+      total_num: number;
+    };
+
+    const rows: MergedDetailRow[] = [];
+    for (const { train_no: trainNo, data: list } of this.trainDetailList) {
+      const code = list[0].station_train_code;
+      const parts = list.map(
+        (stop) =>
+          `${stop.station_name}(${stop.arrive_time} - ${stop.start_time} - ${stop.running_time} - ${stop.arrive_day_str})`,
+      );
+      rows.push({
+        train_no: trainNo,
+        station_train_code: code,
+        stationsCell: parts.join(" / "),
+        total_num: list.length,
+      });
+    }
+
+    rows.sort((a, b) => {
+      const rankA = getTrainTypeRank(a.station_train_code);
+      const rankB = getTrainTypeRank(b.station_train_code);
+      if (rankA !== rankB) return rankA - rankB;
+      return a.station_train_code.localeCompare(b.station_train_code);
+    });
+
+    const header =
+      "| 序号 | 车号(train_no) | 站点车次(station_train_code) | 站点(到站时间 - 发车时间 - 运行时间 - 到达日) | 站点数量(total_num) |";
+    const sep = "| --- | --- | --- | --- | --- |";
+    const body = rows
+      .map(
+        (r, i) =>
+          `| ${i + 1} | ${r.train_no} | ${r.station_train_code} | ${r.stationsCell} | ${r.total_num} |`,
+      )
+      .join("\n");
+    const md = ["# 车次详情表", "", header, sep, body, ""].join("\n");
+
+    const distDir = path.join(process.cwd(), "dist");
+    if (!fs.existsSync(distDir)) fs.mkdirSync(distDir, { recursive: true });
+    const date = this.getTargetDate();
+    fs.writeFileSync(
+      path.join(distDir, `train_detail_${date}.md`),
+      md,
+      "utf-8",
+    );
+    const jsonPath = path.join(distDir, `train_detail_${date}.json`);
+    fs.writeFileSync(
+      jsonPath,
+      JSON.stringify(this.trainDetailList, null, 2),
+      "utf-8",
+    );
   };
 }
 
