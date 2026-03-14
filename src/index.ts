@@ -314,7 +314,14 @@ class Spider {
   };
 
   /**
+   * 从站点车次代码取车次等级（首字母），如 G123 -> G
+   */
+  private getTrainClass = (stationTrainCode: string): string =>
+    (stationTrainCode || "").charAt(0).toUpperCase() || "OTHER";
+
+  /**
    * 根据 trainDetailList 生成车次详情 markdown 表格到 dist/train_detail.md
+   * 同时按车次等级（G、D、C 等）分别写入 train_detail_车次等级_日期.json / .md
    * 表格：序号、车号、站点车次、站点信息（同一车次合并为一行，格式 车站(到站时间 - 发车时间 - 运行时间 - 到达日)，多站用 / 分隔）
    */
   private processTrainDetailData = async () => {
@@ -370,17 +377,80 @@ class Spider {
     const distDir = path.join(process.cwd(), "dist");
     if (!fs.existsSync(distDir)) fs.mkdirSync(distDir, { recursive: true });
     const date = this.getTargetDate();
+
+    // 总的车次详情：json + md
     fs.writeFileSync(
       path.join(distDir, `train_detail_${date}.md`),
       md,
       "utf-8",
     );
-    const jsonPath = path.join(distDir, `train_detail_${date}.json`);
     fs.writeFileSync(
-      jsonPath,
+      path.join(distDir, `train_detail_${date}.json`),
       JSON.stringify(this.trainDetailList, null, 2),
       "utf-8",
     );
+
+    // 按车次等级分组
+    const detailByClass = new Map<
+      string,
+      { train_no: string; data: ITrainStationResponseViaTrainNoAndDateList }[]
+    >();
+    const rowsByClass = new Map<string, MergedDetailRow[]>();
+    for (const item of this.trainDetailList) {
+      const cls = this.getTrainClass(item.data[0]?.station_train_code ?? "");
+      const arr = detailByClass.get(cls) ?? [];
+      arr.push(item);
+      detailByClass.set(cls, arr);
+    }
+    for (const r of rows) {
+      const cls = this.getTrainClass(r.station_train_code);
+      const arr = rowsByClass.get(cls) ?? [];
+      arr.push(r);
+      rowsByClass.set(cls, arr);
+    }
+
+    // 各等级内按站点车次排序
+    const sortedClassNames = [...detailByClass.keys()].sort((a, b) => {
+      const rankA = getTrainTypeRank(a);
+      const rankB = getTrainTypeRank(b);
+      if (rankA !== rankB) return rankA - rankB;
+      return a.localeCompare(b);
+    });
+
+    for (const trainClass of sortedClassNames) {
+      const detailList = detailByClass.get(trainClass) ?? [];
+      const classRows = rowsByClass.get(trainClass) ?? [];
+      classRows.sort((a, b) =>
+        a.station_train_code.localeCompare(b.station_train_code),
+      );
+
+      const classBody = classRows
+        .map(
+          (r, i) =>
+            `| ${i + 1} | ${r.train_no} | ${r.station_train_code} | ${r.stationsCell} | ${r.total_num} |`,
+        )
+        .join("\n");
+      const classMd = [
+        `# 车次详情表（${trainClass}）`,
+        "",
+        header,
+        sep,
+        classBody,
+        "",
+      ].join("\n");
+
+      const baseName = `train_detail_${trainClass}_${date}`;
+      fs.writeFileSync(
+        path.join(distDir, `${baseName}.md`),
+        classMd,
+        "utf-8",
+      );
+      fs.writeFileSync(
+        path.join(distDir, `${baseName}.json`),
+        JSON.stringify(detailList, null, 2),
+        "utf-8",
+      );
+    }
   };
 }
 

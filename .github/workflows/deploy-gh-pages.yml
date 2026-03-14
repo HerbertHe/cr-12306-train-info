@@ -53,18 +53,19 @@ jobs:
       - name: Set target date for release (same as crawler: today UTC + 13 days)
         run: echo "TARGET_DATE=$(date -u -d '+13 days' +%Y%m%d)" >> $GITHUB_ENV
 
-      - name: Create GitHub Release and upload JSON assets
+      - name: Create GitHub Release and upload JSON/MD assets
         uses: softprops/action-gh-release@v2
         with:
           tag_name: data-${{ env.TARGET_DATE }}
           name: 车次数据 ${{ env.TARGET_DATE }}
           body: |
-            车次列表与车次详情 JSON，对应日期 ${{ env.TARGET_DATE }}。
-            - train_list_${{ env.TARGET_DATE }}.json 车次列表
-            - train_detail_${{ env.TARGET_DATE }}.json 车次详情
+            车次列表与车次详情，对应日期 ${{ env.TARGET_DATE }}。
+            - train_list_${{ env.TARGET_DATE }}.json / .md 车次列表
+            - train_detail_${{ env.TARGET_DATE }}.json / .md 车次详情（全部）
+            - train_detail_车次等级_${{ env.TARGET_DATE }}.json / .md 按 G、D、C 等等级分文件
           files: |
-            dist/train_list_${{ env.TARGET_DATE }}.json
-            dist/train_detail_${{ env.TARGET_DATE }}.json
+            dist/*.json
+            dist/*.md
           skip_if_tag_exists: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
