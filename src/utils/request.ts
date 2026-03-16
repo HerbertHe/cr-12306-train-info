@@ -361,7 +361,7 @@ export class ProxyPoolManager {
     url: string,
     options: RequestInit = {},
   ): Promise<API.IResponse<T>> {
-    await sleep(1000, 5000);
+    await sleep(1_000, 3_000);
     return this.request<T>(url, options);
   }
 

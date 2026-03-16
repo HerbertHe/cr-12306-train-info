@@ -26,9 +26,9 @@ import { PAGE_SIZE, TRAIN_CLASS_LIST } from "./constants";
 class Spider {
   /**
    * 任务调度器
-   * 最多同时执行 300 个任务
+   * 最多同时执行 8 个任务
    */
-  private taskScheduler = new TaskScheduler(300);
+  private taskScheduler = new TaskScheduler(8);
 
   /**
    * 车次列表
