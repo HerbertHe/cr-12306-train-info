@@ -12,7 +12,12 @@ import {
   ITrainStationResponseViaTrainNoAndDate,
 } from "./services/train/model";
 
-import { TaskScheduler, ensureProxyPool, getFailedQueueLength, retryFailedRequests } from "./utils";
+import {
+  TaskScheduler,
+  ensureProxyPool,
+  getFailedQueueLength,
+  retryFailedRequests,
+} from "./utils";
 import { PAGE_SIZE, TRAIN_CLASS_LIST } from "./constants";
 
 class Spider {
@@ -33,10 +38,16 @@ class Spider {
   private trainListFilteredByTrainNo: Set<ITrain> = new Set();
 
   /**
+   * train_no -> 所有关联的 station_train_code（如 G100/G101），在 processTrainListData 中填充
+   */
+  private trainNoToStationCodes = new Map<string, string>();
+
+  /**
    * 车次详情数组（车号 + 站点列表，车站名已去空格）
    */
   private trainDetailList: {
     train_no: string;
+    station_train_codes: string;
     data: ITrainStationResponseViaTrainNoAndDateList;
   }[] = [];
 
@@ -55,7 +66,11 @@ class Spider {
       if (!fs.existsSync(distDir)) fs.mkdirSync(distDir, { recursive: true });
       const date = this.getTargetDate();
       const jsonPath = path.join(distDir, `train_list_${date}.json`);
-      fs.writeFileSync(jsonPath, JSON.stringify(Array.from(this.trainList), null, 2), "utf-8");
+      fs.writeFileSync(
+        jsonPath,
+        JSON.stringify(Array.from(this.trainList), null, 2),
+        "utf-8",
+      );
     });
   };
 
@@ -66,8 +81,14 @@ class Spider {
     await ensureProxyPool();
     await this.fetchTrainList();
     const maxRetryRounds = 3;
-    for (let round = 0; round < maxRetryRounds && getFailedQueueLength() > 0; round++) {
-      console.log(`[重试轮次 ${round + 1}/${maxRetryRounds}] 重试 ${getFailedQueueLength()} 个失败请求`);
+    for (
+      let round = 0;
+      round < maxRetryRounds && getFailedQueueLength() > 0;
+      round++
+    ) {
+      console.log(
+        `[重试轮次 ${round + 1}/${maxRetryRounds}] 重试 ${getFailedQueueLength()} 个失败请求`,
+      );
       await retryFailedRequests();
     }
     await this.savePromise;
@@ -107,14 +128,15 @@ class Spider {
     await Promise.all(promises);
 
     const endTime = process.hrtime(startTime);
-    console.log(`获取车次列表完成, 耗时: ${endTime[0]}s ${endTime[1] / 1000000}ms`);
+    console.log(
+      `获取车次列表完成, 耗时: ${endTime[0]}s ${endTime[1] / 1000000}ms`,
+    );
   };
 
   /**
    * 去除始发站/终到站前后及中间所有空格
    */
-  private normalizeStation = (s: string): string =>
-    s.replace(/\s+/g, "");
+  private normalizeStation = (s: string): string => s.replace(/\s+/g, "");
 
   /**
    * 车次详情 API 所需日期格式：20260316 -> 2026-03-16
@@ -238,9 +260,12 @@ class Spider {
     for (const [, trains] of byTrainNo) {
       // 车号包含站点车次的作为记录，若无则取第一条
       const chosen =
-        trains.find((t) => t.train_no.includes(t.station_train_code)) ?? trains[0];
-      const stationTrainCodes = [...new Set(trains.map((t) => t.station_train_code))]
-        .sort()
+        trains.find((t) => t.train_no.includes(t.station_train_code)) ??
+        trains[0];
+      const stationTrainCodes = [
+        ...new Set(trains.map((t) => t.station_train_code)),
+      ]
+        .sort((a, b) => a.localeCompare(b, void 0, { numeric: true }))
         .join("/");
       tableRows.push({
         from_station: chosen.from_station,
@@ -261,7 +286,11 @@ class Spider {
     });
 
     this.trainListFilteredByTrainNo.clear();
-    tableRows.forEach((r) => this.trainListFilteredByTrainNo.add(r.first));
+    this.trainNoToStationCodes.clear();
+    tableRows.forEach((r) => {
+      this.trainListFilteredByTrainNo.add(r.first);
+      this.trainNoToStationCodes.set(r.train_no, r.station_train_code);
+    });
 
     // 生成 markdown 表格并写入 dist/train_list.md
     // 表头为中文，括号中带原始变量名，首列为序号，车号和站点车次紧随其后
@@ -299,11 +328,15 @@ class Spider {
       );
       const rawList =
         rsp.success && Array.isArray(rsp.data?.data)
-          ? (rsp.data.data as unknown as ITrainStationResponseViaTrainNoAndDateList)
+          ? (rsp.data
+              .data as unknown as ITrainStationResponseViaTrainNoAndDateList)
           : null;
       if (!rawList?.length) continue;
       this.trainDetailList.push({
         train_no: train.train_no,
+        station_train_codes:
+          this.trainNoToStationCodes.get(train.train_no) ??
+          rawList[0].station_train_code,
         data: this.normalizeDetailList(rawList),
       });
     }
@@ -342,15 +375,15 @@ class Spider {
     };
 
     const rows: MergedDetailRow[] = [];
-    for (const { train_no: trainNo, data: list } of this.trainDetailList) {
-      const code = list[0].station_train_code;
+    for (const { train_no: trainNo, station_train_codes, data: list } of this
+      .trainDetailList) {
       const parts = list.map(
         (stop) =>
           `${stop.station_name}(${stop.arrive_time} - ${stop.start_time} - ${stop.running_time} - ${stop.arrive_day_str})`,
       );
       rows.push({
         train_no: trainNo,
-        station_train_code: code,
+        station_train_code: station_train_codes,
         stationsCell: parts.join(" / "),
         total_num: list.length,
       });
@@ -393,11 +426,15 @@ class Spider {
     // 按车次等级分组
     const detailByClass = new Map<
       string,
-      { train_no: string; data: ITrainStationResponseViaTrainNoAndDateList }[]
+      {
+        train_no: string;
+        station_train_codes: string;
+        data: ITrainStationResponseViaTrainNoAndDateList;
+      }[]
     >();
     const rowsByClass = new Map<string, MergedDetailRow[]>();
     for (const item of this.trainDetailList) {
-      const cls = this.getTrainClass(item.data[0]?.station_train_code ?? "");
+      const cls = this.getTrainClass(item.station_train_codes);
       const arr = detailByClass.get(cls) ?? [];
       arr.push(item);
       detailByClass.set(cls, arr);
@@ -440,11 +477,7 @@ class Spider {
       ].join("\n");
 
       const baseName = `train_detail_${trainClass}_${date}`;
-      fs.writeFileSync(
-        path.join(distDir, `${baseName}.md`),
-        classMd,
-        "utf-8",
-      );
+      fs.writeFileSync(path.join(distDir, `${baseName}.md`), classMd, "utf-8");
       fs.writeFileSync(
         path.join(distDir, `${baseName}.json`),
         JSON.stringify(detailList, null, 2),
