@@ -17,6 +17,9 @@ import {
   ensureProxyPool,
   getFailedQueueLength,
   retryFailedRequests,
+  sealPermanentlyFailed,
+  getSuccessCount,
+  getPermanentlyFailedUrls,
 } from "./utils";
 import { PAGE_SIZE, TRAIN_CLASS_LIST } from "./constants";
 
@@ -50,6 +53,10 @@ class Spider {
     station_train_codes: string;
     data: ITrainStationResponseViaTrainNoAndDateList;
   }[] = [];
+
+  private trainDetailTotal = 0;
+  private trainDetailSuccessCount = 0;
+  private trainDetailFailedTrainNos: string[] = [];
 
   /**
    * 串行写入，避免并发写同一文件
@@ -91,10 +98,12 @@ class Spider {
       );
       await retryFailedRequests();
     }
+    sealPermanentlyFailed();
     await this.savePromise;
     await this.processTrainListData();
     await this.fetchTrainDetails();
     await this.processTrainDetailData();
+    this.generateReadme();
   };
 
   /**
@@ -320,6 +329,9 @@ class Spider {
   private fetchTrainDetails = async () => {
     const list = Array.from(this.trainListFilteredByTrainNo);
     this.trainDetailList = [];
+    this.trainDetailTotal = list.length;
+    this.trainDetailSuccessCount = 0;
+    this.trainDetailFailedTrainNos = [];
     const startTime = process.hrtime();
     for (const train of list) {
       const dateStr = this.formatDateForDetail(train.date);
@@ -331,7 +343,11 @@ class Spider {
           ? (rsp.data
               .data as unknown as ITrainStationResponseViaTrainNoAndDateList)
           : null;
-      if (!rawList?.length) continue;
+      if (!rawList?.length) {
+        this.trainDetailFailedTrainNos.push(train.train_no);
+        continue;
+      }
+      this.trainDetailSuccessCount++;
       this.trainDetailList.push({
         train_no: train.train_no,
         station_train_codes:
@@ -342,7 +358,7 @@ class Spider {
     }
     const endTime = process.hrtime(startTime);
     console.log(
-      `获取车次详情完成, 共 ${this.trainDetailList.length} 条, 耗时: ${endTime[0]}s ${endTime[1] / 1000000}ms`,
+      `获取车次详情完成, 共 ${this.trainDetailSuccessCount}/${this.trainDetailTotal} 条, 失败 ${this.trainDetailFailedTrainNos.length} 条, 耗时: ${endTime[0]}s ${endTime[1] / 1000000}ms`,
     );
   };
 
@@ -484,6 +500,85 @@ class Spider {
         "utf-8",
       );
     }
+  };
+  /**
+   * 生成 Jekyll 兼容的 README.md 和 summary.json 到 dist/
+   */
+  private generateReadme = () => {
+    const date = this.getTargetDate();
+    const formattedDate = `${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6, 8)}`;
+    const successCount = getSuccessCount();
+    const failedUrls = getPermanentlyFailedUrls();
+    const uniqueFailedUrls = [...new Set(failedUrls)];
+    const totalRequests = successCount + failedUrls.length;
+
+    const lines: string[] = [
+      "---",
+      `title: 车次数据采集报告`,
+      `date: ${formattedDate}`,
+      "layout: default",
+      "---",
+      "",
+      `# 车次数据采集报告（${formattedDate}）`,
+      "",
+      "## 请求统计（不含代理验证）",
+      "",
+      "| 指标 | 数值 |",
+      "| --- | --- |",
+      `| 总请求数 | ${totalRequests} |`,
+      `| 成功请求数 | ${successCount} |`,
+      `| 最终失败数 | ${failedUrls.length} |`,
+      `| 成功率 | ${totalRequests > 0 ? ((successCount / totalRequests) * 100).toFixed(2) : "0.00"}% |`,
+      "",
+      "## 车次详情获取统计",
+      "",
+      "| 指标 | 数值 |",
+      "| --- | --- |",
+      `| 待获取车次数 | ${this.trainDetailTotal} |`,
+      `| 成功获取数 | ${this.trainDetailSuccessCount} |`,
+      `| 失败数 | ${this.trainDetailFailedTrainNos.length} |`,
+      `| 成功率 | ${this.trainDetailTotal > 0 ? ((this.trainDetailSuccessCount / this.trainDetailTotal) * 100).toFixed(2) : "0.00"}% |`,
+      "",
+    ];
+
+    if (uniqueFailedUrls.length > 0) {
+      lines.push(
+        "## 最终失败的请求",
+        "",
+        "以下请求在所有重试轮次后仍未成功：",
+        "",
+        "| 序号 | 请求地址 |",
+        "| --- | --- |",
+      );
+      for (let i = 0; i < uniqueFailedUrls.length; i++) {
+        lines.push(`| ${i + 1} | ${uniqueFailedUrls[i]} |`);
+      }
+      lines.push("");
+    } else {
+      lines.push("## 最终失败的请求", "", "无失败请求，所有请求均已成功。", "");
+    }
+
+    const distDir = path.join(process.cwd(), "dist");
+    if (!fs.existsSync(distDir)) fs.mkdirSync(distDir, { recursive: true });
+    fs.writeFileSync(path.join(distDir, "README.md"), lines.join("\n"), "utf-8");
+
+    const summary = {
+      date: formattedDate,
+      request: { total: totalRequests, success: successCount, failed: failedUrls.length },
+      trainDetail: {
+        total: this.trainDetailTotal,
+        success: this.trainDetailSuccessCount,
+        failed: this.trainDetailFailedTrainNos.length,
+      },
+    };
+    fs.writeFileSync(
+      path.join(distDir, "summary.json"),
+      JSON.stringify(summary, null, 2),
+      "utf-8",
+    );
+    console.log(
+      `[README] 已生成 dist/README.md 和 dist/summary.json`,
+    );
   };
 }
 

@@ -46,6 +46,24 @@ export class ProxyPoolManager {
   /** 请求序号，用于按偏移分配代理；取代理时用 offset % pool.length，超过最大值则从头开始 */
   private requestCounter = 0;
   private failedQueue: Array<{ url: string; options: RequestInit }> = [];
+  private successCount = 0;
+  private permanentlyFailedUrls: string[] = [];
+
+  /**
+   * 根据当前日期计算每日起始偏移，使每天从代理池的不同位置开始。
+   * 步长 15731 是接近每日请求量(~15000)的质数，与代理池大小互质，
+   * 保证连续多天运行后能均匀覆盖整个代理池。
+   * @param poolSize 代理池大小，用于取模使偏移落在池范围内
+   */
+  private static computeDailyOffset(poolSize: number): number {
+    const now = new Date();
+    const epoch = new Date(now.getFullYear(), 0, 1);
+    const daysSinceEpoch = Math.floor(
+      (now.getTime() - epoch.getTime()) / (24 * 60 * 60 * 1000),
+    );
+    const DAILY_STEP = 15731;
+    return (daysSinceEpoch * DAILY_STEP) % poolSize;
+  }
 
   constructor(options: {
     proxyListUrl?: string;
@@ -129,7 +147,10 @@ export class ProxyPoolManager {
           .map((l) => l.trim())
           .filter((l) => l && l.includes(":"));
         this.pool = lines;
-        console.log(`[代理池] 从本地文件加载 ${this.pool.length} 个代理: ${filePath}`);
+        this.requestCounter = ProxyPoolManager.computeDailyOffset(this.pool.length);
+        console.log(
+          `[代理池] 从本地文件加载 ${this.pool.length} 个代理, 今日起始偏移: ${this.requestCounter}, 文件: ${filePath}`,
+        );
         return;
       }
 
@@ -146,11 +167,14 @@ export class ProxyPoolManager {
         const start = Date.now();
         const valid = await this.validateProxyList(lines);
         this.pool = valid;
+        if (this.pool.length > 0) {
+          this.requestCounter = ProxyPoolManager.computeDailyOffset(this.pool.length);
+        }
         const durationMs = Date.now() - start;
         const successCount = this.pool.length;
         const failCount = lines.length - successCount;
         console.log(
-          `[代理池] 校验统计 => 成功: ${successCount} 个, 失败: ${failCount} 个, 耗时: ${durationMs} ms`,
+          `[代理池] 校验统计 => 成功: ${successCount} 个, 失败: ${failCount} 个, 今日起始偏移: ${this.requestCounter}, 耗时: ${durationMs} ms`,
         );
       }
     } catch {
@@ -181,9 +205,12 @@ export class ProxyPoolManager {
 
   /**
    * 为本次请求分配偏移（用于分散到不同代理）；取代理时会用该偏移对池大小取模。
+   * 每次递增 MAX_REQUEST_RETRIES，为每个请求预留独占的重试代理位，避免相邻请求共用同一批代理。
    */
   takeRequestOffset(): number {
-    return this.requestCounter++;
+    const offset = this.requestCounter;
+    this.requestCounter += MAX_REQUEST_RETRIES;
+    return offset;
   }
 
   private async doOneRequest<T = any>(
@@ -298,6 +325,7 @@ export class ProxyPoolManager {
         lastResult = result;
 
         if (result.success) {
+          this.successCount++;
           console.log("请求成功:", url);
           return result;
         }
@@ -360,6 +388,23 @@ export class ProxyPoolManager {
     }
     return results;
   }
+
+  /**
+   * 将当前失败队列中的所有 URL 标记为最终失败（在所有重试轮次结束后调用）。
+   */
+  sealPermanentlyFailed(): void {
+    for (const { url } of this.failedQueue) {
+      this.permanentlyFailedUrls.push(url);
+    }
+  }
+
+  getSuccessCount(): number {
+    return this.successCount;
+  }
+
+  getPermanentlyFailedUrls(): string[] {
+    return [...this.permanentlyFailedUrls];
+  }
 }
 
 const defaultProxyPool = new ProxyPoolManager({
@@ -380,3 +425,9 @@ export const retryFailedRequests =
 
 export const getProxyPoolSnapshot =
   defaultProxyPool.getPoolSnapshot.bind(defaultProxyPool);
+export const sealPermanentlyFailed =
+  defaultProxyPool.sealPermanentlyFailed.bind(defaultProxyPool);
+export const getSuccessCount =
+  defaultProxyPool.getSuccessCount.bind(defaultProxyPool);
+export const getPermanentlyFailedUrls =
+  defaultProxyPool.getPermanentlyFailedUrls.bind(defaultProxyPool);

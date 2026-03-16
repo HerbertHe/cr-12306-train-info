@@ -53,6 +53,19 @@ jobs:
       - name: "Set target date for release (same as crawler: today UTC + 13 days)"
         run: echo "TARGET_DATE=$(date -u -d '+13 days' +%Y%m%d)" >> $GITHUB_ENV
 
+      - name: Read crawler summary
+        id: summary
+        run: |
+          if [ -f dist/summary.json ]; then
+            echo "DETAIL_TOTAL=$(jq -r '.trainDetail.total' dist/summary.json)" >> $GITHUB_ENV
+            echo "DETAIL_SUCCESS=$(jq -r '.trainDetail.success' dist/summary.json)" >> $GITHUB_ENV
+            echo "DETAIL_FAILED=$(jq -r '.trainDetail.failed' dist/summary.json)" >> $GITHUB_ENV
+          else
+            echo "DETAIL_TOTAL=N/A" >> $GITHUB_ENV
+            echo "DETAIL_SUCCESS=N/A" >> $GITHUB_ENV
+            echo "DETAIL_FAILED=N/A" >> $GITHUB_ENV
+          fi
+
       - name: Create GitHub Release and upload JSON/MD assets
         uses: softprops/action-gh-release@v2
         with:
@@ -60,6 +73,15 @@ jobs:
           name: 车次数据 ${{ env.TARGET_DATE }}
           body: |
             车次列表与车次详情，对应日期 ${{ env.TARGET_DATE }}。
+
+            ### 车次详情获取统计（不含代理验证）
+            | 指标 | 数值 |
+            | --- | --- |
+            | 待获取车次数 | ${{ env.DETAIL_TOTAL }} |
+            | 成功获取数 | ${{ env.DETAIL_SUCCESS }} |
+            | 失败数 | ${{ env.DETAIL_FAILED }} |
+
+            ### 文件说明
             - train_list_${{ env.TARGET_DATE }}.json / .md 车次列表
             - train_detail_${{ env.TARGET_DATE }}.json / .md 车次详情（全部）
             - train_detail_车次等级_${{ env.TARGET_DATE }}.json / .md 按 G、D、C 等等级分文件
