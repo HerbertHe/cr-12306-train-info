@@ -50,7 +50,7 @@ jobs:
           publish_dir: ./dist
           force_orphan: true
 
-      - name: Set target date for release (same as crawler: today UTC + 13 days)
+      - name: "Set target date for release (same as crawler: today UTC + 13 days)"
         run: echo "TARGET_DATE=$(date -u -d '+13 days' +%Y%m%d)" >> $GITHUB_ENV
 
       - name: Create GitHub Release and upload JSON/MD assets
