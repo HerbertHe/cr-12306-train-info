@@ -59,47 +59,27 @@ class Spider {
   private trainDetailFailedTrainNos: string[] = [];
 
   /**
-   * 串行写入，避免并发写同一文件
+   * 本次运行使用的目标日期（YYYYMMDD），在 run 开始时确定，全程一致，避免跨天后报告日期与请求日期不一致
    */
-  private savePromise = Promise.resolve<void>(void 0);
+  private targetDate = "";
 
   /**
-   * 将当前车次列表写入文件（仅当某次请求返回少于 200 条时调用）
-   * 写入路径与车次详情一致：dist/train_list_YYYYMMDD.json
-   */
-  private persistTrainList = () => {
-    this.savePromise = this.savePromise.then(() => {
-      const distDir = path.join(process.cwd(), "dist");
-      if (!fs.existsSync(distDir)) fs.mkdirSync(distDir, { recursive: true });
-      const date = this.getTargetDate();
-      const jsonPath = path.join(distDir, `train_list_${date}.json`);
-      fs.writeFileSync(
-        jsonPath,
-        JSON.stringify(Array.from(this.trainList), null, 2),
-        "utf-8",
-      );
-    });
-  };
-
-  /**
-   * 运行爬虫（主请求 + 失败请求按偏移分散重试，直到无失败或达最大轮数）
+   * 运行爬虫（主请求 + 失败请求按偏移分散重试，直到无失败请求，以尽量爬取完整数据）
+   * 目标日期在入口处固定，避免请求过程中跨自然日后日期不一致（列表请求、输出文件名、报告均用此日期；详情请求以接口返回的 train.date 为准）。
    */
   run = async () => {
+    this.targetDate = this.getTargetDate();
     await ensureProxyPool();
     await this.fetchTrainList();
-    const maxRetryRounds = 3;
-    for (
-      let round = 0;
-      round < maxRetryRounds && getFailedQueueLength() > 0;
-      round++
-    ) {
+    let round = 0;
+    while (getFailedQueueLength() > 0) {
+      round++;
       console.log(
-        `[重试轮次 ${round + 1}/${maxRetryRounds}] 重试 ${getFailedQueueLength()} 个失败请求`,
+        `[重试轮次 ${round}] 重试 ${getFailedQueueLength()} 个失败请求`,
       );
       await retryFailedRequests();
     }
     sealPermanentlyFailed();
-    await this.savePromise;
     await this.processTrainListData();
     await this.fetchTrainDetails();
     await this.processTrainDetailData();
@@ -126,11 +106,10 @@ class Spider {
   private fetchTrainList = async () => {
     const startTime = process.hrtime();
     const promises: Promise<void>[] = [];
-    const date = this.getTargetDate();
 
     for (const trainClass of TRAIN_CLASS_LIST) {
       for (let i = 1; i <= 9; i++) {
-        promises.push(this.processTrainList(`${trainClass}${i}`, date));
+        promises.push(this.processTrainList(`${trainClass}${i}`, this.targetDate));
       }
     }
 
@@ -210,7 +189,6 @@ class Spider {
       trainList.forEach((train) => {
         this.trainList.add(normalizedTrain(train));
       });
-      this.persistTrainList();
       return;
     }
 
@@ -248,13 +226,10 @@ class Spider {
     }
 
     // 同车号只取第一项；构建表格行（站点车次用 / 合并）
-    const trainTypeOrder: string[] = ["G", "D", "C", "K", "Z", "T", "Y", "S"];
     const getTrainTypeRank = (code: string) => {
       const type = code.charAt(0).toUpperCase();
-      const idx = trainTypeOrder.indexOf(
-        type as (typeof trainTypeOrder)[number],
-      );
-      return idx >= 0 ? idx : trainTypeOrder.length;
+      const idx = TRAIN_CLASS_LIST.indexOf(type);
+      return idx >= 0 ? idx : TRAIN_CLASS_LIST.length;
     };
 
     const tableRows: {
@@ -318,9 +293,14 @@ class Spider {
     if (!fs.existsSync(distDir)) {
       fs.mkdirSync(distDir, { recursive: true });
     }
-    const date = this.getTargetDate();
-    const mdPath = path.join(distDir, `train_list_${date}.md`);
+    const mdPath = path.join(distDir, `train_list_${this.targetDate}.md`);
     fs.writeFileSync(mdPath, md, "utf-8");
+    const jsonPath = path.join(distDir, `train_list_${this.targetDate}.json`);
+    fs.writeFileSync(
+      jsonPath,
+      JSON.stringify(Array.from(this.trainList), null, 2),
+      "utf-8",
+    );
   };
 
   /**
@@ -374,13 +354,10 @@ class Spider {
    * 表格：序号、车号、站点车次、站点信息（同一车次合并为一行，格式 车站(到站时间 - 发车时间 - 运行时间 - 到达日)，多站用 / 分隔）
    */
   private processTrainDetailData = async () => {
-    const trainTypeOrder = ["G", "D", "C", "K", "Z", "T", "Y", "S"] as const;
     const getTrainTypeRank = (code: string) => {
       const type = code.charAt(0).toUpperCase();
-      const idx = trainTypeOrder.indexOf(
-        type as (typeof trainTypeOrder)[number],
-      );
-      return idx >= 0 ? idx : trainTypeOrder.length;
+      const idx = TRAIN_CLASS_LIST.indexOf(type);
+      return idx >= 0 ? idx : TRAIN_CLASS_LIST.length;
     };
 
     type MergedDetailRow = {
@@ -425,16 +402,15 @@ class Spider {
 
     const distDir = path.join(process.cwd(), "dist");
     if (!fs.existsSync(distDir)) fs.mkdirSync(distDir, { recursive: true });
-    const date = this.getTargetDate();
 
     // 总的车次详情：json + md
     fs.writeFileSync(
-      path.join(distDir, `train_detail_${date}.md`),
+      path.join(distDir, `train_detail_${this.targetDate}.md`),
       md,
       "utf-8",
     );
     fs.writeFileSync(
-      path.join(distDir, `train_detail_${date}.json`),
+      path.join(distDir, `train_detail_${this.targetDate}.json`),
       JSON.stringify(this.trainDetailList, null, 2),
       "utf-8",
     );
@@ -492,7 +468,7 @@ class Spider {
         "",
       ].join("\n");
 
-      const baseName = `train_detail_${trainClass}_${date}`;
+      const baseName = `train_detail_${trainClass}_${this.targetDate}`;
       fs.writeFileSync(path.join(distDir, `${baseName}.md`), classMd, "utf-8");
       fs.writeFileSync(
         path.join(distDir, `${baseName}.json`),
@@ -503,10 +479,10 @@ class Spider {
   };
   /**
    * 生成 Jekyll 兼容的 README.md 和 summary.json 到 dist/
+   * 报告中的日期以本次运行的目标日期 targetDate 为准（与列表请求、输出文件名一致）。
    */
   private generateReadme = () => {
-    const date = this.getTargetDate();
-    const formattedDate = `${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6, 8)}`;
+    const formattedDate = `${this.targetDate.slice(0, 4)}-${this.targetDate.slice(4, 6)}-${this.targetDate.slice(6, 8)}`;
     const successCount = getSuccessCount();
     const failedUrls = getPermanentlyFailedUrls();
     const uniqueFailedUrls = [...new Set(failedUrls)];
