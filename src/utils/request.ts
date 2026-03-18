@@ -49,21 +49,22 @@ export class ProxyPoolManager {
   private successCount = 0;
   private permanentlyFailedUrls: string[] = [];
 
-  /**
-   * 根据当前日期计算每日起始偏移，使每天从代理池的不同位置开始。
-   * 步长 15731 是接近每日请求量(~15000)的质数，与代理池大小互质，
-   * 保证连续多天运行后能均匀覆盖整个代理池。
-   * @param poolSize 代理池大小，用于取模使偏移落在池范围内
-   */
-  private static computeDailyOffset(poolSize: number): number {
-    const now = new Date();
-    const epoch = new Date(now.getFullYear(), 0, 1);
-    const daysSinceEpoch = Math.floor(
-      (now.getTime() - epoch.getTime()) / (24 * 60 * 60 * 1000),
-    );
-    const DAILY_STEP = 15731;
-    return (daysSinceEpoch * DAILY_STEP) % poolSize;
-  }
+  // 根据日期进行偏移计算已注释，每次从 0 开始
+  // /**
+  //  * 根据当前日期计算每日起始偏移，使每天从代理池的不同位置开始。
+  //  * 步长 15731 是接近每日请求量(~15000)的质数，与代理池大小互质，
+  //  * 保证连续多天运行后能均匀覆盖整个代理池。
+  //  * @param poolSize 代理池大小，用于取模使偏移落在池范围内
+  //  */
+  // private static computeDailyOffset(poolSize: number): number {
+  //   const now = new Date();
+  //   const epoch = new Date(now.getFullYear(), 0, 1);
+  //   const daysSinceEpoch = Math.floor(
+  //     (now.getTime() - epoch.getTime()) / (24 * 60 * 60 * 1000),
+  //   );
+  //   const DAILY_STEP = 15731;
+  //   return (daysSinceEpoch * DAILY_STEP) % poolSize;
+  // }
 
   constructor(options: {
     proxyListUrl?: string;
@@ -147,9 +148,9 @@ export class ProxyPoolManager {
           .map((l) => l.trim())
           .filter((l) => l && l.includes(":"));
         this.pool = lines;
-        this.requestCounter = ProxyPoolManager.computeDailyOffset(this.pool.length);
+        // 每次从 0 开始，不再按日期计算起始偏移：this.requestCounter = ProxyPoolManager.computeDailyOffset(this.pool.length);
         console.log(
-          `[代理池] 从本地文件加载 ${this.pool.length} 个代理, 今日起始偏移: ${this.requestCounter}, 文件: ${filePath}`,
+          `[代理池] 从本地文件加载 ${this.pool.length} 个代理, 起始偏移: ${this.requestCounter}, 文件: ${filePath}`,
         );
         return;
       }
@@ -167,14 +168,12 @@ export class ProxyPoolManager {
         const start = Date.now();
         const valid = await this.validateProxyList(lines);
         this.pool = valid;
-        if (this.pool.length > 0) {
-          this.requestCounter = ProxyPoolManager.computeDailyOffset(this.pool.length);
-        }
+        // 每次从 0 开始，不再按日期计算起始偏移：if (this.pool.length > 0) { this.requestCounter = ProxyPoolManager.computeDailyOffset(this.pool.length); }
         const durationMs = Date.now() - start;
         const successCount = this.pool.length;
         const failCount = lines.length - successCount;
         console.log(
-          `[代理池] 校验统计 => 成功: ${successCount} 个, 失败: ${failCount} 个, 今日起始偏移: ${this.requestCounter}, 耗时: ${durationMs} ms`,
+          `[代理池] 校验统计 => 成功: ${successCount} 个, 失败: ${failCount} 个, 起始偏移: ${this.requestCounter}, 耗时: ${durationMs} ms`,
         );
       }
     } catch {

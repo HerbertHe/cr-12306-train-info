@@ -63,19 +63,24 @@ class Spider {
    */
   private targetDate = "";
 
+  /** 失败请求最大重试轮数 */
+  private static readonly MAX_RETRY_ROUNDS = 5;
+
   /**
-   * 运行爬虫（主请求 + 失败请求按偏移分散重试，直到无失败请求，以尽量爬取完整数据）
+   * 运行爬虫（主请求 + 失败请求按偏移分散重试，最多重试 MAX_RETRY_ROUNDS 轮）
    * 目标日期在入口处固定，避免请求过程中跨自然日后日期不一致（列表请求、输出文件名、报告均用此日期；详情请求以接口返回的 train.date 为准）。
    */
   run = async () => {
     this.targetDate = this.getTargetDate();
     await ensureProxyPool();
     await this.fetchTrainList();
-    let round = 0;
-    while (getFailedQueueLength() > 0) {
-      round++;
+    for (
+      let round = 0;
+      round < Spider.MAX_RETRY_ROUNDS && getFailedQueueLength() > 0;
+      round++
+    ) {
       console.log(
-        `[重试轮次 ${round}] 重试 ${getFailedQueueLength()} 个失败请求`,
+        `[重试轮次 ${round + 1}/${Spider.MAX_RETRY_ROUNDS}] 重试 ${getFailedQueueLength()} 个失败请求`,
       );
       await retryFailedRequests();
     }
