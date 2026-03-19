@@ -310,6 +310,7 @@ class Spider {
 
   /**
    * 根据 trainListFilteredByTrainNo 获取车次详情并写入 trainDetailList（车站名已去空格）
+   * 通过调度器并发请求（最多 8 个同时进行），相比串行显著缩短耗时。
    */
   private fetchTrainDetails = async () => {
     const list = Array.from(this.trainListFilteredByTrainNo);
@@ -318,11 +319,19 @@ class Spider {
     this.trainDetailSuccessCount = 0;
     this.trainDetailFailedTrainNos = [];
     const startTime = process.hrtime();
-    for (const train of list) {
-      const dateStr = this.formatDateForDetail(train.date);
-      const rsp = await this.taskScheduler.add(() =>
-        queryTrainDetailByTrainNoAndDate(train.train_no, dateStr),
-      );
+
+    const results = await Promise.all(
+      list.map((train) => {
+        const dateStr = this.formatDateForDetail(train.date);
+        return this.taskScheduler
+          .add(() =>
+            queryTrainDetailByTrainNoAndDate(train.train_no, dateStr),
+          )
+          .then((rsp) => ({ train, rsp }));
+      }),
+    );
+
+    for (const { train, rsp } of results) {
       const rawList =
         rsp.success && Array.isArray(rsp.data?.data)
           ? (rsp.data
@@ -341,6 +350,7 @@ class Spider {
         data: this.normalizeDetailList(rawList),
       });
     }
+
     const endTime = process.hrtime(startTime);
     console.log(
       `获取车次详情完成, 共 ${this.trainDetailSuccessCount}/${this.trainDetailTotal} 条, 失败 ${this.trainDetailFailedTrainNos.length} 条, 耗时: ${endTime[0]}s ${endTime[1] / 1000000}ms`,

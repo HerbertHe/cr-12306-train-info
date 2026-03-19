@@ -4,6 +4,16 @@ import fs from "fs";
 import path from "path";
 
 import { HttpsProxyAgent } from "https-proxy-agent";
+
+import {
+  REQUEST_RETRY_DELAY_MAX,
+  REQUEST_RETRY_DELAY_MIN,
+  RETRY_BATCH_DELAY_MAX,
+  RETRY_BATCH_DELAY_MIN,
+  RETRY_BATCH_SIZE,
+  SAFE_REQUEST_DELAY_MAX,
+  SAFE_REQUEST_DELAY_MIN,
+} from "../constants";
 import { sleep } from "./sleep";
 
 /** 模拟 12306 官网浏览器请求头（与 kyfw.12306.cn / search.12306.cn 一致） */
@@ -305,7 +315,7 @@ export class ProxyPoolManager {
           success: false,
           message: "无可用代理",
         } as API.IResponse<T>;
-        await sleep(500, 1500);
+        await sleep(REQUEST_RETRY_DELAY_MIN, REQUEST_RETRY_DELAY_MAX);
         continue;
       }
 
@@ -346,7 +356,7 @@ export class ProxyPoolManager {
       }
 
       if (i < MAX_REQUEST_RETRIES - 1) {
-        await sleep(500, 1500);
+        await sleep(REQUEST_RETRY_DELAY_MIN, REQUEST_RETRY_DELAY_MAX);
       }
     }
 
@@ -355,12 +365,12 @@ export class ProxyPoolManager {
     return lastResult!;
   }
 
-  /** 安全请求：随机休眠后发起请求，从代理池按偏移分散 */
+  /** 安全请求：按配置随机休眠后发起请求，从代理池按偏移分散 */
   async safeRequest<T = any>(
     url: string,
     options: RequestInit = {},
   ): Promise<API.IResponse<T>> {
-    await sleep(1_000, 3_000);
+    await sleep(SAFE_REQUEST_DELAY_MIN, SAFE_REQUEST_DELAY_MAX);
     return this.request<T>(url, options);
   }
 
@@ -369,21 +379,29 @@ export class ProxyPoolManager {
   }
 
   /**
-   * 将失败队列中的请求按偏移分散重新执行一次，并清空当前失败队列。
+   * 将失败队列中的请求按批并发重新执行（每批 RETRY_BATCH_SIZE 个），批间休眠，并清空当前失败队列。
    */
   async retryFailedRequests(): Promise<API.IResponse<any>[]> {
     if (this.failedQueue.length === 0) return [];
     const todo = this.failedQueue.splice(0, this.failedQueue.length);
     console.log(
-      `[重试] 开始重试 ${todo.length} 个失败请求（按代理池偏移分散）`,
+      `[重试] 开始重试 ${todo.length} 个失败请求（每批 ${RETRY_BATCH_SIZE} 个并发）`,
     );
     const results: API.IResponse<any>[] = [];
-    for (const { url, options } of todo) {
-      await sleep(300, 800);
-      const r = await this.request(url, options);
-      results.push(r);
-      if (r.success) console.log("[重试] 成功:", url);
-      else console.log("[重试] 仍失败:", url);
+    for (let i = 0; i < todo.length; i += RETRY_BATCH_SIZE) {
+      const batch = todo.slice(i, i + RETRY_BATCH_SIZE);
+      const batchResults = await Promise.all(
+        batch.map(({ url, options }) => this.request(url, options)),
+      );
+      for (let j = 0; j < batch.length; j++) {
+        results.push(batchResults[j]);
+        if (batchResults[j].success)
+          console.log("[重试] 成功:", batch[j].url);
+        else console.log("[重试] 仍失败:", batch[j].url);
+      }
+      if (i + RETRY_BATCH_SIZE < todo.length) {
+        await sleep(RETRY_BATCH_DELAY_MIN, RETRY_BATCH_DELAY_MAX);
+      }
     }
     return results;
   }
