@@ -20,15 +20,18 @@ import {
   sealPermanentlyFailed,
   getSuccessCount,
   getPermanentlyFailedUrls,
+  request,
 } from "./utils";
 import { PAGE_SIZE, TRAIN_CLASS_LIST } from "./constants";
 
 class Spider {
   /**
    * 任务调度器
-   * 最多同时执行 8 个任务
+   * 最多同时执行 8 个任务，最少 2 个
+   * 动态调整并发：成功率高增加并发，失败率高降低并发
+   * 任务启动随机延迟，避免被检测
    */
-  private taskScheduler = new TaskScheduler(8);
+  private taskScheduler = new TaskScheduler(8, 2);
 
   /**
    * 车次列表
@@ -68,8 +71,8 @@ class Spider {
 
   /**
    * 运行爬虫（主请求 + 失败请求按偏移分散重试，最多重试 MAX_RETRY_ROUNDS 轮）
-   * 目标日期在入口处固定，避免请求过程中跨自然日后日期不一致（列表请求、输出文件名、报告均用此日期；详情请求以接口返回的 train.date 为准）。
-   */
+    * 目标日期在入口处固定，避免请求过程中跨自然日后日期不一致（列表请求、输出文件名、报告均用此日期；详情请求以接口返回的 train.date 为准）。
+    */
   run = async () => {
     this.targetDate = this.getTargetDate();
     await ensureProxyPool();
@@ -82,13 +85,27 @@ class Spider {
       console.log(
         `[重试轮次 ${round + 1}/${Spider.MAX_RETRY_ROUNDS}] 重试 ${getFailedQueueLength()} 个失败请求`,
       );
-      await retryFailedRequests();
+      await this.retryFailedRequestsWithScheduler();
     }
+    // 先 seal，此时所有失败请求已经进入 permanentlyFailedUrls
+    sealPermanentlyFailed();
+    // 提取永久失败的 train_list 请求进行最后重试
+    // 使用已经淘汰过一轮失败代理的新鲜代理池重试
+    await this.retryPermanentlyFailedTrainList();
+    // 重试过程中新的失败会自动回到失败队列，但已经 seal 过了，需要重新 seal
     sealPermanentlyFailed();
     await this.processTrainListData();
     await this.fetchTrainDetails();
     await this.processTrainDetailData();
     this.generateReadme();
+  };
+
+  /**
+   * 使用任务调度器重试失败请求，保持和初始请求相同的并发策略
+   */
+  private retryFailedRequestsWithScheduler = async () => {
+    // retryFailedRequests 会取出所有当前失败请求，使用调度器控制并发
+    await retryFailedRequests(this.taskScheduler);
   };
 
   /**
@@ -163,13 +180,16 @@ class Spider {
    * 车次列表获取处理
    * @param prefix 前缀
    */
-  private processTrainList = async (prefix: string, date: string) => {
-    console.log(`处理车次列表, ${prefix}`);
+  /** 空响应重试最大次数 */
+  private static readonly MAX_EMPTY_RETRIES = 2;
+
+  private processTrainList = async (prefix: string, date: string, emptyRetries: number = 0): Promise<void> => {
+    console.log(`处理车次列表, ${prefix}${emptyRetries > 0 ? ` (空重试 ${emptyRetries}/${Spider.MAX_EMPTY_RETRIES})` : ''}`);
     const rsp = await this.taskScheduler.add(async () => {
       return await queryTrainListByKeywordAndDate(prefix, date);
     });
 
-    // 请求失败
+    // 请求失败直接返回，会在重试队列处理
     if (!rsp.success) {
       return;
     }
@@ -178,7 +198,16 @@ class Spider {
 
     console.log(`${prefix} 车次列表获取完成, 数据: ${trainList.length}`);
 
+    // 空响应：可能是rate limit导致，有空余次数则重试
     if (trainList.length === 0) {
+      if (emptyRetries < Spider.MAX_EMPTY_RETRIES) {
+        console.log(`${prefix} 返回空，进行第 ${emptyRetries + 1} 次重试`);
+        // 等待一段时间后重试
+        await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
+        return this.processTrainList(prefix, date, emptyRetries + 1);
+      }
+      // 达到最大重试次数仍然为空，确认真的没有
+      console.log(`${prefix} 多次重试仍为空，确认无数据`);
       return;
     }
 
@@ -214,6 +243,42 @@ class Spider {
       subTasks.push(this.processTrainList(`${prefix}${j}`, date));
     }
     await Promise.all(subTasks);
+  };
+
+  /**
+   * 提取永久失败URL中的前缀信息，重新进行处理
+   */
+  private retryPermanentlyFailedTrainList = async () => {
+    const failedUrls = getPermanentlyFailedUrls();
+    const trainListPrefixes: string[] = [];
+
+    // 从失败URL中提取 keyword 参数（仅提取 train_list 的搜索请求）
+    for (const url of failedUrls) {
+      const match = url.match(/keyword=([^&]+)&date=/);
+      if (match && match[1]) {
+        trainListPrefixes.push(match[1]);
+      }
+    }
+
+    // 去重，避免重复重试同一个前缀
+    const uniquePrefixes = [...new Set(trainListPrefixes)];
+
+    if (uniquePrefixes.length === 0) {
+      console.log("[重试] 没有需要重试的 train_list 请求");
+      return;
+    }
+
+    console.log(`[重试] 发现 ${uniquePrefixes.length} 个唯一失败的 train_list 请求，开始重试`);
+
+    // 使用任务调度器控制并发，保持和最初获取一致的并发数
+    const promises = uniquePrefixes.map(prefix => 
+      this.taskScheduler.add(async () => {
+        return await this.processTrainList(prefix, this.targetDate);
+      })
+    );
+
+    await Promise.all(promises);
+    console.log(`[重试] 完成对 ${uniquePrefixes.length} 个失败 train_list 请求的重试`);
   };
 
   /**

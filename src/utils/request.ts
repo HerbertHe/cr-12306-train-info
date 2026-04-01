@@ -16,26 +16,98 @@ import {
 } from "../constants";
 import { sleep } from "./sleep";
 
-/** 模拟 12306 官网浏览器请求头（与 kyfw.12306.cn / search.12306.cn 一致） */
-const DEFAULT_HEADERS: HeadersInit = {
-  Accept: "*/*",
-  "Accept-Encoding": "gzip, deflate, br, zstd",
-  "Accept-Language":
-    "zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7,ja-JP;q=0.6,ja;q=0.5,zh-TW;q=0.4,ar-XB;q=0.3,ar;q=0.2",
-  "Cache-Control": "no-cache",
-  Connection: "keep-alive",
-  Origin: "https://kyfw.12306.cn",
-  Pragma: "no-cache",
-  Referer: "https://kyfw.12306.cn/",
-  "Sec-Fetch-Dest": "empty",
-  "Sec-Fetch-Mode": "cors",
-  "Sec-Fetch-Site": "same-site",
-  "User-Agent":
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
-  "sec-ch-ua":
-    '"Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"',
-  "sec-ch-ua-mobile": "?0",
-  "sec-ch-ua-platform": '"macOS"',
+/** 常见的 User-Agent 列表，随机选择降低被拦截概率 */
+const USER_AGENTS = [
+  // Chrome macOS
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
+  // Chrome Windows
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
+  // Chrome Linux
+  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
+  // Firefox macOS
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:135.0) Gecko/20100101 Firefox/135.0",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:136.0) Gecko/20100101 Firefox/136.0",
+  // Firefox Windows
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:135.0) Gecko/20100101 Firefox/135.0",
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:136.0) Gecko/20100101 Firefox/136.0",
+  // Edge
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36 Edg/146.0.0.0",
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36 Edg/146.0.0.0",
+  // Safari
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.2 Safari/605.1.15",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Safari/605.1.15",
+];
+
+/** 获取随机 User-Agent */
+const getRandomUserAgent = (): string => {
+  const index = Math.floor(Math.random() * USER_AGENTS.length);
+  return USER_AGENTS[index];
+};
+
+/** 构建随机化请求头 */
+const buildRandomHeaders = (customHeaders: Headers = new Headers()): Headers => {
+  const merged = new Headers({
+    Accept: "*/*",
+    "Accept-Encoding": "gzip, deflate, br, zstd",
+    "Accept-Language":
+      "zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7,ja-JP;q=0.6,ja;q=0.5,zh-TW;q=0.4,ar-XB;q=0.3,ar;q=0.2",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+    Origin: "https://kyfw.12306.cn",
+    Pragma: "no-cache",
+    Referer: "https://kyfw.12306.cn/",
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-site",
+    "sec-ch-ua-mobile": "?0",
+  });
+
+  const userAgent = getRandomUserAgent();
+  merged.set("User-Agent", userAgent);
+
+  // 根据浏览器类型设置正确的 sec-ch-ua 头部
+  if (userAgent.includes('Chrome')) {
+    const chromeVersion = userAgent.match(/Chrome\/(\d+)/)?.[1] || "145";
+    merged.set("sec-ch-ua", `"Not:A-Brand";v="99", "Google Chrome";v="${chromeVersion}", "Chromium";v="${chromeVersion}"`);
+  } else if (userAgent.includes('Edg')) {
+    const edgeVersion = userAgent.match(/Edg\/(\d+)/)?.[1] || "146";
+    merged.set("sec-ch-ua", `"Not:A-Brand";v="99", "Microsoft Edge";v="${edgeVersion}", "Chromium";v="${edgeVersion}"`);
+  } else {
+    // Firefox/Safari 不需要 Chrome 特有的头部
+    merged.delete('sec-ch-ua');
+    merged.delete('sec-ch-ua-mobile');
+    merged.delete('sec-ch-ua-platform');
+  }
+
+  // 只有 Chrome 内核才添加平台信息
+  if (userAgent.includes('Chrome') || userAgent.includes('Edg')) {
+    let platform = '"macOS"';
+    if (userAgent.includes('Windows')) platform = '"Windows"';
+    if (userAgent.includes('Linux')) platform = '"Linux"';
+    merged.set("sec-ch-ua-platform", platform);
+  }
+
+  // 合并用户自定义请求头
+  customHeaders.forEach((value, key) => merged.set(key, value));
+
+  return merged;
 };
 
 /** 代理/请求最大重试次数 */
@@ -53,11 +125,13 @@ export class ProxyPoolManager {
   private readonly localFilePath?: string;
 
   private pool: string[] = [];
-  /** 请求序号，用于按偏移分配代理；取代理时用 offset % pool.length，超过最大值则从头开始 */
+  /** 请求序号，用于按偏移分散请求；取代理时用 offset % pool.length，超过最大值则从头开始 */
   private requestCounter = 0;
   private failedQueue: Array<{ url: string; options: RequestInit }> = [];
   private successCount = 0;
   private permanentlyFailedUrls: string[] = [];
+  /** 是否允许直连（不使用代理），当代理池为空时 */
+  private allowDirectConnection = true;
 
   // 根据日期进行偏移计算已注释，每次从 0 开始
   // /**
@@ -82,6 +156,7 @@ export class ProxyPoolManager {
     validateTimeoutMs?: number;
     validateConcurrency?: number;
     localFilePath?: string;
+    allowDirectConnection?: boolean;
   } = {}) {
     this.proxyListUrl =
       options.proxyListUrl ??
@@ -90,6 +165,7 @@ export class ProxyPoolManager {
     this.validateTimeoutMs = options.validateTimeoutMs ?? 8000;
     this.validateConcurrency = options.validateConcurrency ?? 15;
     this.localFilePath = options.localFilePath;
+    this.allowDirectConnection = options.allowDirectConnection ?? true;
   }
 
   /** 校验单个代理是否可用 */
@@ -207,6 +283,32 @@ export class ProxyPoolManager {
     return ipPort ? `http://${ipPort}` : null;
   }
 
+  /**
+   * 从代理池中移除失败的代理，保持代理池质量
+   */
+  removeFailedProxies(proxyUrls: string[]): void {
+    if (proxyUrls.length === 0) return;
+
+    // 提取 IP:PORT 部分
+    const failedIpPorts = proxyUrls.map(url => {
+      // 移除 http:// 前缀
+      return url.replace(/^http:\/\//, '');
+    });
+
+    const originalSize = this.pool.length;
+    this.pool = this.pool.filter(ipPort => !failedIpPorts.includes(ipPort));
+    const removedCount = originalSize - this.pool.length;
+
+    if (removedCount > 0) {
+      console.log(`[代理池] 移除 ${removedCount} 个失败代理，当前池大小: ${this.pool.length}`);
+    }
+  }
+
+  /** 获取当前代理池大小 */
+  getPoolSize(): number {
+    return this.pool.length;
+  }
+
   /** 获取当前代理池快照（仅返回 IP:PORT 字符串，不带协议） */
   getPoolSnapshot(): string[] {
     return [...this.pool];
@@ -228,15 +330,27 @@ export class ProxyPoolManager {
     options: RequestInit,
     proxyUrl: string,
   ): Promise<API.IResponse<T>> {
-    const fetchOptions: RequestInit & { agent?: any } = {
+    const controller = new AbortController();
+    // 设置 15 秒超时，避免慢速代理长时间等待
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+    const fetchOptions: RequestInit & { agent?: any; signal: AbortSignal } = {
       ...options,
       headers: mergedHeaders,
+      signal: controller.signal,
     };
 
     const agent = new HttpsProxyAgent(proxyUrl);
     (fetchOptions as any).agent = agent;
 
-    const rsp = await fetch(url, fetchOptions);
+    let rsp;
+    try {
+      rsp = await fetch(url, fetchOptions);
+    } catch (err) {
+      clearTimeout(timeoutId);
+      throw err;
+    }
+    clearTimeout(timeoutId);
 
     let result: API.IResponse<T>;
     try {
@@ -289,11 +403,11 @@ export class ProxyPoolManager {
       return fail;
     }
 
-    const mergedHeaders = new Headers(DEFAULT_HEADERS);
-    const customHeaders = new Headers(options?.headers);
-    customHeaders.forEach((value, key) => mergedHeaders.set(key, value));
+     // 构建随机化请求头
+     const customHeaders = new Headers(options?.headers);
+     const mergedHeaders = buildRandomHeaders(customHeaders);
 
-    const baseOffset = this.takeRequestOffset();
+     const baseOffset = this.takeRequestOffset();
     const effectiveOffset = baseOffset % poolSize;
     let lastResult: API.IResponse<T> | null = null;
 
@@ -304,17 +418,22 @@ export class ProxyPoolManager {
       poolSize,
     });
 
-    for (let i = 0; i < MAX_REQUEST_RETRIES; i++) {
+    let failedProxies: string[] = [];
+    // 根据当前代理池大小调整最大重试次数，避免重复使用相同代理
+    const maxRetries = Math.min(MAX_REQUEST_RETRIES, this.pool.length);
+    for (let i = 0; i < maxRetries; i++) {
       const proxyUrl = this.getProxyUrlByIndex(baseOffset + i);
       if (!proxyUrl) {
         console.log(
-          `[请求] 第 ${i + 1}/${MAX_REQUEST_RETRIES} 次 无可用代理，跳过`,
+          `[请求] 第 ${i + 1}/${maxRetries} 次 无可用代理，跳过`,
         );
         lastResult = {
           code: 0,
           success: false,
           message: "无可用代理",
         } as API.IResponse<T>;
+        // 无可用代理也当作代理错误处理
+        if (proxyUrl) failedProxies.push(proxyUrl);
         await sleep(REQUEST_RETRY_DELAY_MIN, REQUEST_RETRY_DELAY_MAX);
         continue;
       }
@@ -339,13 +458,17 @@ export class ProxyPoolManager {
           return result;
         }
 
+        // 只有当响应不正确时（非 200，但代理能连上）不移除代理
+        // 只有连接/超时/网络错误，才认为是代理失效
         console.log(
           `请求未成功 (${i + 1}/${MAX_REQUEST_RETRIES}):`,
           result.message,
         );
       } catch (err) {
+        // 连接异常/超时 → 代理失效，需要移除
+        failedProxies.push(proxyUrl);
         console.log(
-          `代理/请求异常 (${i + 1}/${MAX_REQUEST_RETRIES}):`,
+          `代理/网络异常 (${i + 1}/${MAX_REQUEST_RETRIES}):`,
           err instanceof Error ? err.message : String(err),
         );
         lastResult = {
@@ -360,7 +483,10 @@ export class ProxyPoolManager {
       }
     }
 
-    console.log("已达最大重试次数，记录到失败队列，稍后重试:", url);
+    // 只移除连接失败/超时的代理，保留能连接但返回错误的代理
+    this.removeFailedProxies(failedProxies);
+
+    console.log(`已达最大重试次数(${maxRetries})，记录到失败队列，稍后重试:`, url);
     this.failedQueue.push({ url, options });
     return lastResult!;
   }
@@ -379,14 +505,30 @@ export class ProxyPoolManager {
   }
 
   /**
-   * 将失败队列中的请求按批并发重新执行（每批 RETRY_BATCH_SIZE 个），批间休眠，并清空当前失败队列。
+   * 重试失败队列中的请求
+   * 如果提供了任务调度器，使用调度器控制并发（保持和初始请求相同的并发策略）
    */
-  async retryFailedRequests(): Promise<API.IResponse<any>[]> {
+  async retryFailedRequests(scheduler?: TaskScheduler): Promise<API.IResponse<any>[]> {
     if (this.failedQueue.length === 0) return [];
     const todo = this.failedQueue.splice(0, this.failedQueue.length);
     console.log(
-      `[重试] 开始重试 ${todo.length} 个失败请求（每批 ${RETRY_BATCH_SIZE} 个并发）`,
+      `[重试] 开始重试 ${todo.length} 个失败请求${scheduler ? '，使用任务调度器' : `（每批 ${RETRY_BATCH_SIZE} 个并发）`}`,
     );
+
+    if (scheduler) {
+      // 使用任务调度器，获得自适应并发和随机延迟，和初始请求保持一致
+      const promises = todo.map(({ url, options }) => 
+        scheduler.add(() => this.request(url, options))
+          .then(result => {
+            if (result.success) console.log("[重试] 成功:", url);
+            else console.log("[重试] 仍失败:", url);
+            return result;
+          })
+      );
+      return Promise.all(promises);
+    }
+
+    // 传统批量并发方式（兼容）
     const results: API.IResponse<any>[] = [];
     for (let i = 0; i < todo.length; i += RETRY_BATCH_SIZE) {
       const batch = todo.slice(i, i + RETRY_BATCH_SIZE);
