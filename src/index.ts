@@ -126,16 +126,31 @@ class Spider {
   };
 
   /**
+   * Fisher-Yates 洗牌算法
+   */
+  private shuffleArray = <T>(array: T[]): T[] => {
+    const result = [...array];
+    for (let i = result.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [result[i], result[j]] = [result[j], result[i]];
+    }
+    return result;
+  };
+
+  /**
    * 获取所有车次列表
-   * 遍历所有车次等级，每个车次等级遍历 0 - 9 的编号
+   * 遍历所有车次等级，每个车次等级遍历打乱后的 1 - 9 编号
    * 日期默认使用当前日期 + 13 天
    */
   private fetchTrainList = async () => {
     const startTime = process.hrtime();
     const promises: Promise<void>[] = [];
 
+    // 生成 1-9 数组并打乱顺序
+    const numbers = this.shuffleArray(Array.from({ length: 9 }, (_, i) => i + 1));
+
     for (const trainClass of TRAIN_CLASS_LIST) {
-      for (let i = 1; i <= 9; i++) {
+      for (const i of numbers) {
         promises.push(this.processTrainList(`${trainClass}${i}`, this.targetDate));
       }
     }
@@ -187,9 +202,7 @@ class Spider {
    */
   private processTrainList = async (prefix: string, date: string): Promise<void> => {
     console.log(`处理车次列表, ${prefix}`);
-    const rsp = await this.taskScheduler.add(async () => {
-      return await queryTrainListByKeywordAndDate(prefix, date);
-    });
+    const rsp = await queryTrainListByKeywordAndDate(prefix, date);
 
     // 请求失败直接返回，会在重试队列处理
     if (!rsp.success) {
@@ -231,9 +244,10 @@ class Spider {
       this.trainList.add(normalizedTrain(exactMatchTrain));
     }
 
-    // 递归拆分任务
+    // 递归拆分任务，打乱顺序
     const subTasks: Promise<void>[] = [];
-    for (let j = 0; j <= 9; j++) {
+    const digits = this.shuffleArray(Array.from({ length: 10 }, (_, i) => i));
+    for (const j of digits) {
       console.log(`递归拆分任务, ${prefix}${j}`);
       subTasks.push(this.processTrainList(`${prefix}${j}`, date));
     }
