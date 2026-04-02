@@ -377,11 +377,10 @@ export class ProxyPoolManager {
         data: data as string,
         message: rsp.statusText,
       } as API.IResponse<T>;
-    }
+     }
 
-    console.log("[返回值]", JSON.stringify(result, null, 2));
-    return result;
-  }
+     return result;
+   }
 
   /**
    * 请求：按请求序号从代理池偏移取代理（偏移超过池大小时从头开始），失败则换下一个代理重试。

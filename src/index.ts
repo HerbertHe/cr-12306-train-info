@@ -27,11 +27,9 @@ import { PAGE_SIZE, TRAIN_CLASS_LIST } from "./constants";
 class Spider {
   /**
    * 任务调度器
-   * 最多同时执行 8 个任务，最少 2 个
-   * 动态调整并发：成功率高增加并发，失败率高降低并发
-   * 任务启动随机延迟，避免被检测
+   * 自适应并发，最大 6 个任务，最小 2 个任务，降低并发以避免被12306限流
    */
-  private taskScheduler = new TaskScheduler(8, 2);
+  private taskScheduler = new TaskScheduler(6, 2);
 
   /**
    * 车次列表
@@ -74,30 +72,37 @@ class Spider {
     * 目标日期在入口处固定，避免请求过程中跨自然日后日期不一致（列表请求、输出文件名、报告均用此日期；详情请求以接口返回的 train.date 为准）。
     */
   run = async () => {
-    this.targetDate = this.getTargetDate();
-    await ensureProxyPool();
-    await this.fetchTrainList();
-    for (
-      let round = 0;
-      round < Spider.MAX_RETRY_ROUNDS && getFailedQueueLength() > 0;
-      round++
-    ) {
-      console.log(
-        `[重试轮次 ${round + 1}/${Spider.MAX_RETRY_ROUNDS}] 重试 ${getFailedQueueLength()} 个失败请求`,
-      );
-      await this.retryFailedRequestsWithScheduler();
+    try {
+      this.targetDate = this.getTargetDate();
+      await ensureProxyPool();
+      await this.fetchTrainList();
+      for (
+        let round = 0;
+        round < Spider.MAX_RETRY_ROUNDS && getFailedQueueLength() > 0;
+        round++
+      ) {
+        console.log(
+          `[重试轮次 ${round + 1}/${Spider.MAX_RETRY_ROUNDS}] 重试 ${getFailedQueueLength()} 个失败请求`,
+        );
+        await retryFailedRequests();
+      }
+      sealPermanentlyFailed();
+    } finally {
+      // 无论如何都保证生成dist目录和基础报告，即使前面出现异常
+      console.log("开始生成输出文件...");
+      await this.processTrainListData();
+      if (this.trainListFilteredByTrainNo.size > 0) {
+        await this.fetchTrainDetails();
+        await this.processTrainDetailData();
+      } else {
+        console.log("没有获取到任何车次列表数据，跳过获取车次详情步骤");
+        this.trainDetailTotal = 0;
+        this.trainDetailSuccessCount = 0;
+        this.trainDetailFailedTrainNos = [];
+      }
+      this.generateReadme();
+      console.log("输出文件生成完成");
     }
-    // 先 seal，此时所有失败请求已经进入 permanentlyFailedUrls
-    sealPermanentlyFailed();
-    // 提取永久失败的 train_list 请求进行最后重试
-    // 使用已经淘汰过一轮失败代理的新鲜代理池重试
-    await this.retryPermanentlyFailedTrainList();
-    // 重试过程中新的失败会自动回到失败队列，但已经 seal 过了，需要重新 seal
-    sealPermanentlyFailed();
-    await this.processTrainListData();
-    await this.fetchTrainDetails();
-    await this.processTrainDetailData();
-    this.generateReadme();
   };
 
   /**
