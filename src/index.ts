@@ -206,23 +206,6 @@ class Spider {
       return;
     }
 
-    const trainList = rsp.data ?? [];
-
-    console.log(`${prefix} 车次列表获取完成, 数据: ${trainList.length}`);
-
-    // 空响应：可能是rate limit导致，有空余次数则重试
-    if (trainList.length === 0) {
-      if (emptyRetries < Spider.MAX_EMPTY_RETRIES) {
-        console.log(`${prefix} 返回空，进行第 ${emptyRetries + 1} 次重试`);
-        // 等待一段时间后重试
-        await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
-        return this.processTrainList(prefix, date, emptyRetries + 1);
-      }
-      // 达到最大重试次数仍然为空，确认真的没有，不计入成功也不计入失败
-      console.log(`${prefix} 多次重试仍为空，确认无数据，不视作成功也不加入重试队列`);
-      return;
-    }
-
     const normalizedTrain = (t: ITrain): ITrain => ({
       ...t,
       from_station: this.normalizeStation(t.from_station),
