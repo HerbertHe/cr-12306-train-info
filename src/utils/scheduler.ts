@@ -64,7 +64,7 @@ export class TaskScheduler {
     }
   }
 
-  add<T>(task: () => Promise<T>): Promise<T> {
+   add<T>(task: () => Promise<T>): Promise<T> {
     return new Promise((resolve, reject) => {
       this.queue.push({ task, resolve, reject } as ITask<T>);
       this.run();
@@ -82,20 +82,21 @@ export class TaskScheduler {
 
     // 随机延迟后执行任务，避免请求时间太规则
     const delay = this.getRandomDelay();
-    setTimeout(() => {
-      task()
-        .then(result => {
-          this.successCount++;
-          resolve(result);
-        })
-        .catch(reject)
-        .finally(() => {
-          this.running--;
-          // 每次任务完成后调整并发
-          this.adjustConcurrency();
-          this.run();
-        });
-    }, delay);
+     setTimeout(() => {
+       task()
+         .then(result => {
+           // 只要请求成功返回 rsp.success=true 就算成功，不管数据是否为空
+           this.successCount++;
+           resolve(result);
+         })
+         .catch(reject)
+         .finally(() => {
+           this.running--;
+           // 每次任务完成后调整并发
+           this.adjustConcurrency();
+           this.run();
+         });
+     }, delay);
   }
 
   /** 获取当前并发数 */

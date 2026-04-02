@@ -185,17 +185,24 @@ class Spider {
    * 车次列表获取处理
    * @param prefix 前缀
    */
-  /** 空响应重试最大次数 */
-  private static readonly MAX_EMPTY_RETRIES = 2;
-
-  private processTrainList = async (prefix: string, date: string, emptyRetries: number = 0): Promise<void> => {
-    console.log(`处理车次列表, ${prefix}${emptyRetries > 0 ? ` (空重试 ${emptyRetries}/${Spider.MAX_EMPTY_RETRIES})` : ''}`);
+  private processTrainList = async (prefix: string, date: string): Promise<void> => {
+    console.log(`处理车次列表, ${prefix}`);
     const rsp = await this.taskScheduler.add(async () => {
       return await queryTrainListByKeywordAndDate(prefix, date);
     });
 
     // 请求失败直接返回，会在重试队列处理
     if (!rsp.success) {
+      return;
+    }
+
+    const trainList = rsp.data ?? [];
+
+    console.log(`${prefix} 车次列表获取完成, 数据: ${trainList.length}`);
+
+    // 空响应直接确认真实空，不重试
+    if (trainList.length === 0) {
+      console.log(`${prefix} 返回空，确认无数据，不加入重试队列`);
       return;
     }
 
@@ -211,8 +218,8 @@ class Spider {
         await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
         return this.processTrainList(prefix, date, emptyRetries + 1);
       }
-      // 达到最大重试次数仍然为空，确认真的没有
-      console.log(`${prefix} 多次重试仍为空，确认无数据`);
+      // 达到最大重试次数仍然为空，确认真的没有，不计入成功也不计入失败
+      console.log(`${prefix} 多次重试仍为空，确认无数据，不视作成功也不加入重试队列`);
       return;
     }
 
