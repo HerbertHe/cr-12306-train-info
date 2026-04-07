@@ -76,20 +76,6 @@ class Spider {
       this.targetDate = this.getTargetDate();
       await ensureProxyPool();
       await this.fetchTrainList();
-      for (
-        let round = 0;
-        round < Spider.MAX_RETRY_ROUNDS && getFailedQueueLength() > 0;
-        round++
-      ) {
-        console.log(
-          `[重试轮次 ${round + 1}/${Spider.MAX_RETRY_ROUNDS}] 重试 ${getFailedQueueLength()} 个失败请求`,
-        );
-        await retryFailedRequests();
-      }
-      sealPermanentlyFailed();
-    } finally {
-      // 无论如何都保证生成dist目录和基础报告，即使前面出现异常
-      console.log("开始生成输出文件...");
       await this.processTrainListData();
       if (this.trainListFilteredByTrainNo.size > 0) {
         await this.fetchTrainDetails();
@@ -100,6 +86,48 @@ class Spider {
         this.trainDetailSuccessCount = 0;
         this.trainDetailFailedTrainNos = [];
       }
+      // 所有请求（包括车次列表和车次详情）都发起后，统一重试所有失败请求
+      for (
+        let round = 0;
+        round < Spider.MAX_RETRY_ROUNDS && getFailedQueueLength() > 0;
+        round++
+      ) {
+        console.log(
+          `[重试轮次 ${round + 1}/${Spider.MAX_RETRY_ROUNDS}] 重试 ${getFailedQueueLength()} 个失败请求`,
+        );
+        const retryResults = await retryFailedRequests(this.taskScheduler);
+        // 处理重试成功的车次详情，将其从失败列表中移除并添加到结果
+        if (this.trainDetailFailedTrainNos.length > 0 && retryResults.length > 0) {
+          // 需要找到哪些重试成功的URL对应我们的失败车号
+          const failedTrainNoSet = new Set(this.trainDetailFailedTrainNos);
+          this.trainDetailFailedTrainNos = this.trainDetailFailedTrainNos.filter(trainNo => {
+            // 查找是否有对应这个车号的重试成功请求
+            const hasSuccessRetry = retryResults.some(result => {
+              if (result.success && result.request?.url?.includes(trainNo)) {
+                // 如果成功，尝试解析结果并添加到列表
+                const rawList = result.success && Array.isArray(result.data?.data) 
+                  ? result.data.data as unknown as ITrainStationResponseViaTrainNoAndDateList
+                  : null;
+                if (rawList?.length) {
+                  this.trainDetailSuccessCount++;
+                  this.trainDetailList.push({
+                    train_no: trainNo,
+                    station_train_codes: this.trainNoToStationCodes.get(trainNo) ?? rawList[0].station_train_code,
+                    data: this.normalizeDetailList(rawList),
+                  });
+                }
+                return true;
+              }
+              return false;
+            });
+            return !hasSuccessRetry; // 如果成功则从失败列表移除（保留失败就是返回false）
+          });
+        }
+      }
+      sealPermanentlyFailed();
+    } finally {
+      // 无论如何都保证生成dist目录和基础报告，即使前面出现异常
+      console.log("开始生成输出文件...");
       this.generateReadme();
       console.log("输出文件生成完成");
     }
