@@ -57,13 +57,20 @@ jobs:
         id: summary
         run: |
           if [ -f dist/summary.json ]; then
-            echo "DETAIL_TOTAL=$(jq -r '.trainDetail.total' dist/summary.json)" >> $GITHUB_ENV
-            echo "DETAIL_SUCCESS=$(jq -r '.trainDetail.success' dist/summary.json)" >> $GITHUB_ENV
-            echo "DETAIL_FAILED=$(jq -r '.trainDetail.failed' dist/summary.json)" >> $GITHUB_ENV
+            echo "LIST_REQ=$(jq -r '.trainList.requested // "N/A"' dist/summary.json)" >> $GITHUB_ENV
+            echo "LIST_SUCCESS=$(jq -r '.trainList.success // "N/A"' dist/summary.json)" >> $GITHUB_ENV
+            echo "LIST_FAILED=$(jq -r '.trainList.failed // "N/A"' dist/summary.json)" >> $GITHUB_ENV
+            echo "DETAIL_REQ=$(jq -r '.trainDetail.requested // "N/A"' dist/summary.json)" >> $GITHUB_ENV
+            echo "DETAIL_SUCCESS=$(jq -r '.trainDetail.success // "N/A"' dist/summary.json)" >> $GITHUB_ENV
+            echo "DETAIL_FAILED_HTTP=$(jq -r '.trainDetail.failed // "N/A"' dist/summary.json)" >> $GITHUB_ENV
+            echo "DETAIL_COMPENSATED=$(jq -r '.trainDetail.compensated // "N/A"' dist/summary.json)" >> $GITHUB_ENV
+            echo "DETAIL_PLANNED=$(jq -r '.trainDetail.plannedDistinctTrainNumbers // "N/A"' dist/summary.json)" >> $GITHUB_ENV
+            echo "DETAIL_ROWS_API=$(jq -r '.trainDetail.distinctTrainsFilledByApi // "N/A"' dist/summary.json)" >> $GITHUB_ENV
+            echo "DETAIL_ROWS_MISSING=$(jq -r '.trainDetail.distinctTrainsStillMissingAfterCompensation // "N/A"' dist/summary.json)" >> $GITHUB_ENV
           else
-            echo "DETAIL_TOTAL=N/A" >> $GITHUB_ENV
-            echo "DETAIL_SUCCESS=N/A" >> $GITHUB_ENV
-            echo "DETAIL_FAILED=N/A" >> $GITHUB_ENV
+            for VAR in LIST_REQ LIST_SUCCESS LIST_FAILED DETAIL_REQ DETAIL_SUCCESS DETAIL_FAILED_HTTP DETAIL_COMPENSATED DETAIL_PLANNED DETAIL_ROWS_API DETAIL_ROWS_MISSING; do
+              echo "${VAR}=N/A" >> $GITHUB_ENV
+            done
           fi
 
       - name: Create GitHub Release and upload JSON/MD assets
@@ -74,12 +81,27 @@ jobs:
           body: |
             车次列表与车次详情，对应日期 ${{ env.TARGET_DATE }}。
 
-            ### 车次详情获取统计（不含代理验证）
+            ### 车次列表（12306 search 接口）
             | 指标 | 数值 |
             | --- | --- |
-            | 待获取车次数 | ${{ env.DETAIL_TOTAL }} |
-            | 成功获取数 | ${{ env.DETAIL_SUCCESS }} |
-            | 失败数 | ${{ env.DETAIL_FAILED }} |
+            | 请求次数（含重试） | ${{ env.LIST_REQ }} |
+            | 成功响应次数 | ${{ env.LIST_SUCCESS }} |
+            | 最终失败队列条目 | ${{ env.LIST_FAILED }} |
+
+            ### 车次详情（12306 queryTrainInfo 接口）
+            | 指标 | 数值 |
+            | --- | --- |
+            | 请求次数（含重试） | ${{ env.DETAIL_REQ }} |
+            | 成功响应次数 | ${{ env.DETAIL_SUCCESS }} |
+            | 最终失败队列条目 | ${{ env.DETAIL_FAILED_HTTP }} |
+            | 前日 HerbertHe Release JSON 补偿条数（按 train_no） | ${{ env.DETAIL_COMPENSATED }} |
+
+            ### 车次详情条目（按计划车号）
+            | 指标 | 数值 |
+            | --- | --- |
+            | 待获取车次（去重后） | ${{ env.DETAIL_PLANNED }} |
+            | 接口拉回条数 | ${{ env.DETAIL_ROWS_API }} |
+            | 补偿后仍缺条数 | ${{ env.DETAIL_ROWS_MISSING }} |
 
             ### 文件说明
             - train_list_${{ env.TARGET_DATE }}.json / .md 车次列表

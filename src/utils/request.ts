@@ -14,6 +14,7 @@ import {
   SAFE_REQUEST_DELAY_MAX,
   SAFE_REQUEST_DELAY_MIN,
 } from "../constants";
+import type { TaskScheduler } from "./scheduler";
 import { sleep } from "./sleep";
 
 /** 常见的 User-Agent 列表，随机选择降低被拦截概率 */
@@ -113,6 +114,15 @@ const buildRandomHeaders = (customHeaders: Headers = new Headers()): Headers => 
 /** 代理/请求最大重试次数 */
 const MAX_REQUEST_RETRIES = 5;
 
+/** 将 12306 爬取请求的 URL 分为车次列表 / 车次详情，其它返回 null（不计入分项统计） */
+export const categorize12306TrainRequestUrl = (
+  url: string,
+): "trainList" | "trainDetail" | null => {
+  if (url.includes("search.12306.cn/search/v1/train/search")) return "trainList";
+  if (url.includes("kyfw.12306.cn/otn/queryTrainInfo/query")) return "trainDetail";
+  return null;
+};
+
 /**
  * 代理池与请求封装：拉取与校验代理、按偏移分散请求、失败入队与重试。
  * 偏移量超过代理池大小时自动从头开始使用（取模）。
@@ -130,6 +140,11 @@ export class ProxyPoolManager {
   private failedQueue: Array<{ url: string; options: RequestInit }> = [];
   private successCount = 0;
   private permanentlyFailedUrls: string[] = [];
+  /** 车次列表 / 车次详情分项：每次发起 request（含重试队列中的每一次执行）记一次 requested；仅 HTTP 维度成功记 success */
+  private trainListRequested = 0;
+  private trainListSuccessCounted = 0;
+  private trainDetailRequested = 0;
+  private trainDetailSuccessCounted = 0;
   /** 是否允许直连（不使用代理），当代理池为空时 */
   private allowDirectConnection = true;
 
@@ -391,6 +406,10 @@ export class ProxyPoolManager {
     url: string,
     options: RequestInit = {},
   ): Promise<API.IResponse<T>> {
+    const biz = categorize12306TrainRequestUrl(url);
+    if (biz === "trainList") this.trainListRequested++;
+    else if (biz === "trainDetail") this.trainDetailRequested++;
+
     const poolSize = this.pool.length;
     if (!poolSize) {
       const fail: API.IResponse<T> = {
@@ -453,6 +472,8 @@ export class ProxyPoolManager {
 
         if (result.success) {
           this.successCount++;
+          if (biz === "trainList") this.trainListSuccessCounted++;
+          if (biz === "trainDetail") this.trainDetailSuccessCounted++;
           console.log("请求成功:", url);
           return result;
         }
@@ -507,7 +528,9 @@ export class ProxyPoolManager {
    * 重试失败队列中的请求
    * 如果提供了任务调度器，使用调度器控制并发（保持和初始请求相同的并发策略）
    */
-  async retryFailedRequests(scheduler?: TaskScheduler): Promise<API.IResponse<any>[]> {
+  async retryFailedRequests(
+    scheduler?: TaskScheduler,
+  ): Promise<{ url: string; result: API.IResponse<any> }[]> {
     if (this.failedQueue.length === 0) return [];
     const todo = this.failedQueue.splice(0, this.failedQueue.length);
     console.log(
@@ -515,30 +538,28 @@ export class ProxyPoolManager {
     );
 
     if (scheduler) {
-      // 使用任务调度器，获得自适应并发和随机延迟，和初始请求保持一致
-      const promises = todo.map(({ url, options }) => 
-        scheduler.add(() => this.request(url, options))
-          .then(result => {
-            if (result.success) console.log("[重试] 成功:", url);
-            else console.log("[重试] 仍失败:", url);
-            return result;
-          })
+      const promises = todo.map(({ url, options }) =>
+        scheduler.add(() => this.request(url, options)).then((result: API.IResponse<any>) => {
+          if (result.success) console.log("[重试] 成功:", url);
+          else console.log("[重试] 仍失败:", url);
+          return { url, result };
+        }),
       );
       return Promise.all(promises);
     }
 
-    // 传统批量并发方式（兼容）
-    const results: API.IResponse<any>[] = [];
+    const results: { url: string; result: API.IResponse<any> }[] = [];
     for (let i = 0; i < todo.length; i += RETRY_BATCH_SIZE) {
       const batch = todo.slice(i, i + RETRY_BATCH_SIZE);
       const batchResults = await Promise.all(
         batch.map(({ url, options }) => this.request(url, options)),
       );
       for (let j = 0; j < batch.length; j++) {
-        results.push(batchResults[j]);
-        if (batchResults[j].success)
-          console.log("[重试] 成功:", batch[j].url);
-        else console.log("[重试] 仍失败:", batch[j].url);
+        const url = batch[j].url;
+        const result = batchResults[j];
+        results.push({ url, result });
+        if (result.success) console.log("[重试] 成功:", url);
+        else console.log("[重试] 仍失败:", url);
       }
       if (i + RETRY_BATCH_SIZE < todo.length) {
         await sleep(RETRY_BATCH_DELAY_MIN, RETRY_BATCH_DELAY_MAX);
@@ -562,6 +583,33 @@ export class ProxyPoolManager {
 
   getPermanentlyFailedUrls(): string[] {
     return [...this.permanentlyFailedUrls];
+  }
+
+  /** 分项统计（失败数为 seal 后轮次结束后仍记在永久失败队列中的 URL 条数） */
+  getBusinessRequestReporting(): {
+    trainList: { requested: number; success: number; failed: number };
+    trainDetail: { requested: number; success: number; failed: number };
+  } {
+    const failedUrls = this.permanentlyFailedUrls;
+    let trainListFailed = 0;
+    let trainDetailFailed = 0;
+    for (const u of failedUrls) {
+      const c = categorize12306TrainRequestUrl(u);
+      if (c === "trainList") trainListFailed++;
+      else if (c === "trainDetail") trainDetailFailed++;
+    }
+    return {
+      trainList: {
+        requested: this.trainListRequested,
+        success: this.trainListSuccessCounted,
+        failed: trainListFailed,
+      },
+      trainDetail: {
+        requested: this.trainDetailRequested,
+        success: this.trainDetailSuccessCounted,
+        failed: trainDetailFailed,
+      },
+    };
   }
 }
 
@@ -589,3 +637,5 @@ export const getSuccessCount =
   defaultProxyPool.getSuccessCount.bind(defaultProxyPool);
 export const getPermanentlyFailedUrls =
   defaultProxyPool.getPermanentlyFailedUrls.bind(defaultProxyPool);
+export const getBusinessRequestReporting =
+  defaultProxyPool.getBusinessRequestReporting.bind(defaultProxyPool);

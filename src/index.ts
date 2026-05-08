@@ -20,7 +20,7 @@ import {
   sealPermanentlyFailed,
   getSuccessCount,
   getPermanentlyFailedUrls,
-  request,
+  getBusinessRequestReporting,
 } from "./utils";
 import { PAGE_SIZE, TRAIN_CLASS_LIST } from "./constants";
 
@@ -57,6 +57,8 @@ class Spider {
 
   private trainDetailTotal = 0;
   private trainDetailSuccessCount = 0;
+  /** 从前一日 Release 的 train_detail JSON 中按 train_no 回填的条数 */
+  private trainDetailCompensatedCount = 0;
   private trainDetailFailedTrainNos: string[] = [];
 
   /**
@@ -78,12 +80,13 @@ class Spider {
       await this.fetchTrainList();
       await this.processTrainListData();
       if (this.trainListFilteredByTrainNo.size > 0) {
+        this.trainDetailCompensatedCount = 0;
         await this.fetchTrainDetails();
-        await this.processTrainDetailData();
       } else {
         console.log("没有获取到任何车次列表数据，跳过获取车次详情步骤");
         this.trainDetailTotal = 0;
         this.trainDetailSuccessCount = 0;
+        this.trainDetailCompensatedCount = 0;
         this.trainDetailFailedTrainNos = [];
       }
       // 所有请求（包括车次列表和车次详情）都发起后，统一重试所有失败请求
@@ -96,49 +99,48 @@ class Spider {
           `[重试轮次 ${round + 1}/${Spider.MAX_RETRY_ROUNDS}] 重试 ${getFailedQueueLength()} 个失败请求`,
         );
         const retryResults = await retryFailedRequests(this.taskScheduler);
-        // 处理重试成功的车次详情，将其从失败列表中移除并添加到结果
         if (this.trainDetailFailedTrainNos.length > 0 && retryResults.length > 0) {
-          // 需要找到哪些重试成功的URL对应我们的失败车号
-          const failedTrainNoSet = new Set(this.trainDetailFailedTrainNos);
-          this.trainDetailFailedTrainNos = this.trainDetailFailedTrainNos.filter(trainNo => {
-            // 查找是否有对应这个车号的重试成功请求
-            const hasSuccessRetry = retryResults.some(result => {
-              if (result.success && result.request?.url?.includes(trainNo)) {
-                // 如果成功，尝试解析结果并添加到列表
-                const rawList = result.success && Array.isArray(result.data?.data) 
-                  ? result.data.data as unknown as ITrainStationResponseViaTrainNoAndDateList
-                  : null;
-                if (rawList?.length) {
-                  this.trainDetailSuccessCount++;
-                  this.trainDetailList.push({
-                    train_no: trainNo,
-                    station_train_codes: this.trainNoToStationCodes.get(trainNo) ?? rawList[0].station_train_code,
-                    data: this.normalizeDetailList(rawList),
-                  });
-                }
-                return true;
-              }
-              return false;
+          const pending = [...this.trainDetailFailedTrainNos];
+          this.trainDetailFailedTrainNos = [];
+          for (const trainNo of pending) {
+            const row = retryResults.find((r) => {
+              const fromUrl = Spider.trainNoFrom12306DetailQueryUrl(r.url);
+              return (
+                fromUrl === trainNo &&
+                r.result.success &&
+                Array.isArray((r.result.data as { data?: unknown } | undefined)?.data)
+              );
             });
-            return !hasSuccessRetry; // 如果成功则从失败列表移除（保留失败就是返回false）
-          });
+            const rawList = row?.result.success
+              ? ((row.result.data as { data: ITrainStationResponseViaTrainNoAndDateList })
+                  .data as ITrainStationResponseViaTrainNoAndDateList)
+              : null;
+            if (rawList?.length) {
+              this.trainDetailSuccessCount++;
+              this.trainDetailList.push({
+                train_no: trainNo,
+                station_train_codes:
+                  this.trainNoToStationCodes.get(trainNo) ??
+                  rawList[0].station_train_code,
+                data: this.normalizeDetailList(rawList),
+              });
+            } else {
+              this.trainDetailFailedTrainNos.push(trainNo);
+            }
+          }
         }
       }
       sealPermanentlyFailed();
+      if (this.trainListFilteredByTrainNo.size > 0) {
+        await this.compensateTrainDetailsFromPreviousRelease();
+        await this.processTrainDetailData();
+      }
     } finally {
       // 无论如何都保证生成dist目录和基础报告，即使前面出现异常
       console.log("开始生成输出文件...");
       this.generateReadme();
       console.log("输出文件生成完成");
     }
-  };
-
-  /**
-   * 使用任务调度器重试失败请求，保持和初始请求相同的并发策略
-   */
-  private retryFailedRequestsWithScheduler = async () => {
-    // retryFailedRequests 会取出所有当前失败请求，使用调度器控制并发
-    await retryFailedRequests(this.taskScheduler);
   };
 
   /**
@@ -222,6 +224,102 @@ class Spider {
       }),
     );
     return [normFirst, ...normRest];
+  };
+
+  /** 从 queryTrainInfo 请求 URL 中解析 train_no */
+  private static trainNoFrom12306DetailQueryUrl(url: string): string | null {
+    const m = url.match(/leftTicketDTO\.train_no=([^&]+)/);
+    if (!m?.[1]) return null;
+    try {
+      return decodeURIComponent(m[1]);
+    } catch {
+      return m[1];
+    }
+  }
+
+  /** 返回 YYYYMMDD 的前一个日历日（与爬虫目标日期同一天数体系） */
+  private subtractOneDayYmd = (ymd: string): string => {
+    const y = Number(ymd.slice(0, 4));
+    const m = Number(ymd.slice(4, 6)) - 1;
+    const day = Number(ymd.slice(6, 8));
+    const d = new Date(y, m, day);
+    d.setDate(d.getDate() - 1);
+    return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+  };
+
+  /**
+   * 接口与重试均已失败的车次详情，从 HerbertHe/cr-12306-train-info 前一日的 data-YYYYMMDD Release 中的 train_detail JSON 按 train_no 补偿。
+   */
+  private compensateTrainDetailsFromPreviousRelease = async (): Promise<void> => {
+    this.trainDetailCompensatedCount = 0;
+    if (this.trainDetailFailedTrainNos.length === 0) return;
+
+    const prevYmd = this.subtractOneDayYmd(this.targetDate);
+    const url = `https://github.com/HerbertHe/cr-12306-train-info/releases/download/data-${prevYmd}/train_detail_${prevYmd}.json`;
+    console.log(`[补偿] 尝试以前一日 Release 回填车次详情: ${url}`);
+    try {
+      const rsp = await fetch(url, {
+        redirect: "follow",
+        headers: {
+          Accept: "application/json",
+          "User-Agent": "HerbertHe/cr-12306-train-info-crawler/compensation",
+        },
+      });
+      if (!rsp.ok) {
+        console.log(`[补偿] 下载失败 HTTP ${rsp.status}，跳过补偿`);
+        return;
+      }
+      const payloadUnknown: unknown = await rsp.json();
+      if (!Array.isArray(payloadUnknown)) {
+        console.log("[补偿] 响应 JSON 非数组，跳过补偿");
+        return;
+      }
+
+      type Entry = {
+        train_no?: string;
+        station_train_codes?: string;
+        data?: ITrainStationResponseViaTrainNoAndDateList;
+      };
+      const byTrainNo = new Map<string, Entry>();
+      for (const item of payloadUnknown as Entry[]) {
+        const no = item?.train_no;
+        if (typeof no !== "string" || !no || byTrainNo.has(no)) continue;
+        byTrainNo.set(no, item);
+      }
+
+      let compensated = 0;
+      const stillFailed: string[] = [];
+      for (const trainNo of this.trainDetailFailedTrainNos) {
+        const prevEntry = byTrainNo.get(trainNo);
+        const data = prevEntry?.data;
+        if (Array.isArray(data) && data.length > 0) {
+          compensated++;
+          const codes =
+            this.trainNoToStationCodes.get(trainNo) ??
+            (typeof prevEntry.station_train_codes === "string" &&
+            prevEntry.station_train_codes
+              ? prevEntry.station_train_codes
+              : data[0].station_train_code);
+          this.trainDetailList.push({
+            train_no: trainNo,
+            station_train_codes: codes,
+            data: this.normalizeDetailList(data),
+          });
+        } else {
+          stillFailed.push(trainNo);
+        }
+      }
+      this.trainDetailCompensatedCount = compensated;
+      this.trainDetailFailedTrainNos = stillFailed;
+      console.log(
+        `[补偿] 已用 ${prevYmd} 日发布数据回填 ${compensated} 条车次详情；仍缺失 ${stillFailed.length} 条`,
+      );
+    } catch (e) {
+      console.log(
+        "[补偿] 拉取或解析前一日详情失败:",
+        e instanceof Error ? e.message : String(e),
+      );
+    }
   };
 
   /**
@@ -604,6 +702,15 @@ class Spider {
     const failedUrls = getPermanentlyFailedUrls();
     const uniqueFailedUrls = [...new Set(failedUrls)];
     const totalRequests = successCount + failedUrls.length;
+    const biz = getBusinessRequestReporting();
+    const detailCoveragePct =
+      this.trainDetailTotal > 0
+        ? (
+            ((this.trainDetailSuccessCount + this.trainDetailCompensatedCount) /
+              this.trainDetailTotal) *
+            100
+          ).toFixed(2)
+        : "0.00";
 
     const lines: string[] = [
       "---",
@@ -614,23 +721,42 @@ class Spider {
       "",
       `# 车次数据采集报告（${formattedDate}）`,
       "",
-      "## 请求统计（不含代理验证）",
+      "## 12306 车次列表接口统计（不含代理验证）",
       "",
       "| 指标 | 数值 |",
       "| --- | --- |",
-      `| 总请求数 | ${totalRequests} |`,
-      `| 成功请求数 | ${successCount} |`,
-      `| 最终失败数 | ${failedUrls.length} |`,
-      `| 成功率 | ${totalRequests > 0 ? ((successCount / totalRequests) * 100).toFixed(2) : "0.00"}% |`,
+      `| 请求次数（含重试过程中的每次调用） | ${biz.trainList.requested} |`,
+      `| 成功响应次数 | ${biz.trainList.success} |`,
+      `| 录入最终失败队列的条数 | ${biz.trainList.failed} |`,
       "",
-      "## 车次详情获取统计",
+      "## 12306 车次详情接口统计（不含代理验证）",
+      "",
+      "| 指标 | 数值 |",
+      "| --- | --- |",
+      `| 请求次数（含重试过程中的每次调用） | ${biz.trainDetail.requested} |`,
+      `| 成功响应次数 | ${biz.trainDetail.success} |`,
+      `| 录入最终失败队列的条数 | ${biz.trainDetail.failed} |`,
+      "",
+      "## 车次详情业务统计（按车号条数）",
+      "",
+      "接口成功数为当日 12306 返回有效停靠表的数量；补偿数为上一自然日 HerbertHe Release 中同 `train_no` 回填的数量。",
       "",
       "| 指标 | 数值 |",
       "| --- | --- |",
       `| 待获取车次数 | ${this.trainDetailTotal} |`,
-      `| 成功获取数 | ${this.trainDetailSuccessCount} |`,
-      `| 失败数 | ${this.trainDetailFailedTrainNos.length} |`,
-      `| 成功率 | ${this.trainDetailTotal > 0 ? ((this.trainDetailSuccessCount / this.trainDetailTotal) * 100).toFixed(2) : "0.00"}% |`,
+      `| 接口成功条数 | ${this.trainDetailSuccessCount} |`,
+      `| 前日 Release 补偿条数 | ${this.trainDetailCompensatedCount} |`,
+      `| 补偿后仍缺失车次数 | ${this.trainDetailFailedTrainNos.length} |`,
+      `| 条目级覆盖率（接口+补偿） | ${detailCoveragePct}% |`,
+      "",
+      "## 全部 12306 请求汇总（列表+详情，用于与历史报告对照）",
+      "",
+      "| 指标 | 数值 |",
+      "| --- | --- |",
+      `| 成功响应次数 | ${successCount} |`,
+      `| 最终失败记录条数 | ${failedUrls.length} |`,
+      `| 合计（成功+失败条数） | ${totalRequests} |`,
+      `| 粗略成功率（成功/合计） | ${totalRequests > 0 ? ((successCount / totalRequests) * 100).toFixed(2) : "0.00"}% |`,
       "",
     ];
 
@@ -657,11 +783,21 @@ class Spider {
 
     const summary = {
       date: formattedDate,
-      request: { total: totalRequests, success: successCount, failed: failedUrls.length },
+      all12306: {
+        successfulHttpResponses: successCount,
+        entriesInPermanentFailQueue: failedUrls.length,
+        recordSum: totalRequests,
+      },
+      trainList: biz.trainList,
       trainDetail: {
-        total: this.trainDetailTotal,
-        success: this.trainDetailSuccessCount,
-        failed: this.trainDetailFailedTrainNos.length,
+        requested: biz.trainDetail.requested,
+        success: biz.trainDetail.success,
+        failed: biz.trainDetail.failed,
+        compensated: this.trainDetailCompensatedCount,
+        plannedDistinctTrainNumbers: this.trainDetailTotal,
+        distinctTrainsFilledByApi: this.trainDetailSuccessCount,
+        distinctTrainsStillMissingAfterCompensation:
+          this.trainDetailFailedTrainNos.length,
       },
     };
     fs.writeFileSync(
