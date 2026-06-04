@@ -1,0 +1,1498 @@
+[
+  {
+    "train_no": "120000Y154Z0",
+    "station_train_codes": "Y151/Y154",
+    "data": [
+      {
+        "arrive_day_str": "当日到达",
+        "station_name": "沈阳北",
+        "train_class_name": "普快",
+        "is_start": "Y",
+        "service_type": "0",
+        "end_station_name": "成都西",
+        "arrive_time": "----",
+        "start_station_name": "沈阳北",
+        "station_train_code": "Y154",
+        "arrive_day_diff": "0",
+        "start_time": "07:59",
+        "station_no": "01",
+        "wz_num": "--",
+        "running_time": "00:00"
+      },
+      {
+        "arrive_day_str": "次日到达",
+        "arrive_time": "23:00",
+        "station_train_code": "Y151",
+        "station_name": "襄阳",
+        "arrive_day_diff": "1",
+        "OT": [],
+        "start_time": "23:25",
+        "wz_num": "--",
+        "station_no": "02",
+        "running_time": "39:01"
+      },
+      {
+        "arrive_day_str": "第三日到达",
+        "arrive_time": "04:17",
+        "station_train_code": "Y151",
+        "station_name": "安康",
+        "arrive_day_diff": "2",
+        "OT": [],
+        "start_time": "04:35",
+        "wz_num": "--",
+        "station_no": "03",
+        "running_time": "44:18"
+      },
+      {
+        "arrive_day_str": "第三日到达",
+        "arrive_time": "08:22",
+        "station_train_code": "Y151",
+        "station_name": "达州",
+        "arrive_day_diff": "2",
+        "OT": [],
+        "start_time": "08:31",
+        "wz_num": "--",
+        "station_no": "04",
+        "running_time": "48:23"
+      },
+      {
+        "arrive_day_str": "第三日到达",
+        "arrive_time": "09:34",
+        "station_train_code": "Y151",
+        "station_name": "营山",
+        "arrive_day_diff": "2",
+        "OT": [],
+        "start_time": "09:52",
+        "wz_num": "--",
+        "station_no": "05",
+        "running_time": "49:35"
+      },
+      {
+        "arrive_day_str": "第三日到达",
+        "arrive_time": "10:28",
+        "station_train_code": "Y151",
+        "station_name": "南充",
+        "arrive_day_diff": "2",
+        "OT": [],
+        "start_time": "11:05",
+        "wz_num": "--",
+        "station_no": "06",
+        "running_time": "50:29"
+      },
+      {
+        "arrive_day_str": "第三日到达",
+        "arrive_time": "12:56",
+        "station_train_code": "Y151",
+        "station_name": "淮口南",
+        "arrive_day_diff": "2",
+        "OT": [],
+        "start_time": "13:07",
+        "wz_num": "--",
+        "station_no": "07",
+        "running_time": "52:57"
+      },
+      {
+        "arrive_day_str": "第三日到达",
+        "arrive_time": "14:17",
+        "station_train_code": "Y151",
+        "station_name": "成都西",
+        "arrive_day_diff": "2",
+        "OT": [],
+        "start_time": "14:17",
+        "wz_num": "--",
+        "station_no": "08",
+        "running_time": "54:18"
+      }
+    ]
+  },
+  {
+    "train_no": "860000Y40260",
+    "station_train_codes": "Y402",
+    "data": [
+      {
+        "arrive_day_str": "当日到达",
+        "station_name": "嘉峪关",
+        "train_class_name": "普快",
+        "is_start": "Y",
+        "service_type": "0",
+        "end_station_name": "长春",
+        "arrive_time": "----",
+        "start_station_name": "嘉峪关",
+        "station_train_code": "Y402",
+        "arrive_day_diff": "0",
+        "start_time": "13:47",
+        "station_no": "01",
+        "wz_num": "--",
+        "running_time": "00:00"
+      },
+      {
+        "arrive_day_str": "当日到达",
+        "arrive_time": "16:24",
+        "station_train_code": "Y402",
+        "station_name": "张掖",
+        "arrive_day_diff": "0",
+        "OT": [],
+        "start_time": "16:40",
+        "wz_num": "--",
+        "station_no": "02",
+        "running_time": "02:37"
+      },
+      {
+        "arrive_day_str": "当日到达",
+        "arrive_time": "19:04",
+        "station_train_code": "Y402",
+        "station_name": "金昌",
+        "arrive_day_diff": "0",
+        "OT": [],
+        "start_time": "19:10",
+        "wz_num": "--",
+        "station_no": "03",
+        "running_time": "05:17"
+      },
+      {
+        "arrive_day_str": "次日到达",
+        "arrive_time": "02:50",
+        "station_train_code": "Y402",
+        "station_name": "中卫",
+        "arrive_day_diff": "1",
+        "OT": [],
+        "start_time": "03:08",
+        "wz_num": "--",
+        "station_no": "04",
+        "running_time": "13:03"
+      },
+      {
+        "arrive_day_str": "次日到达",
+        "arrive_time": "06:22",
+        "station_train_code": "Y402",
+        "station_name": "定边",
+        "arrive_day_diff": "1",
+        "OT": [],
+        "start_time": "06:38",
+        "wz_num": "--",
+        "station_no": "05",
+        "running_time": "16:35"
+      },
+      {
+        "arrive_day_str": "次日到达",
+        "arrive_time": "08:00",
+        "station_train_code": "Y402",
+        "station_name": "靖边",
+        "arrive_day_diff": "1",
+        "OT": [],
+        "start_time": "08:25",
+        "wz_num": "--",
+        "station_no": "06",
+        "running_time": "18:13"
+      },
+      {
+        "arrive_day_str": "次日到达",
+        "arrive_time": "10:31",
+        "station_train_code": "Y402",
+        "station_name": "绥德",
+        "arrive_day_diff": "1",
+        "OT": [],
+        "start_time": "10:51",
+        "wz_num": "--",
+        "station_no": "07",
+        "running_time": "20:44"
+      },
+      {
+        "arrive_day_str": "次日到达",
+        "arrive_time": "13:50",
+        "station_train_code": "Y402",
+        "station_name": "太原",
+        "arrive_day_diff": "1",
+        "OT": [],
+        "start_time": "14:12",
+        "wz_num": "--",
+        "station_no": "08",
+        "running_time": "24:03"
+      },
+      {
+        "arrive_day_str": "次日到达",
+        "arrive_time": "17:49",
+        "station_train_code": "Y402",
+        "station_name": "石家庄北",
+        "arrive_day_diff": "1",
+        "OT": [],
+        "start_time": "18:53",
+        "wz_num": "--",
+        "station_no": "09",
+        "running_time": "28:02"
+      },
+      {
+        "arrive_day_str": "次日到达",
+        "arrive_time": "20:32",
+        "station_train_code": "Y402",
+        "station_name": "保定",
+        "arrive_day_diff": "1",
+        "OT": [],
+        "start_time": "21:39",
+        "wz_num": "--",
+        "station_no": "10",
+        "running_time": "30:45"
+      },
+      {
+        "arrive_day_str": "次日到达",
+        "arrive_time": "23:36",
+        "station_train_code": "Y402",
+        "station_name": "北京丰台",
+        "arrive_day_diff": "1",
+        "OT": [],
+        "start_time": "23:58",
+        "wz_num": "--",
+        "station_no": "11",
+        "running_time": "33:49"
+      },
+      {
+        "arrive_day_str": "第三日到达",
+        "arrive_time": "00:18",
+        "station_train_code": "Y402",
+        "station_name": "北京",
+        "arrive_day_diff": "2",
+        "OT": [],
+        "start_time": "01:05",
+        "wz_num": "--",
+        "station_no": "12",
+        "running_time": "34:31"
+      },
+      {
+        "arrive_day_str": "第三日到达",
+        "arrive_time": "04:03",
+        "station_train_code": "Y402",
+        "station_name": "唐山北",
+        "arrive_day_diff": "2",
+        "OT": [],
+        "start_time": "04:28",
+        "wz_num": "--",
+        "station_no": "13",
+        "running_time": "38:16"
+      },
+      {
+        "arrive_day_str": "第三日到达",
+        "arrive_time": "06:33",
+        "station_train_code": "Y402",
+        "station_name": "山海关",
+        "arrive_day_diff": "2",
+        "OT": [],
+        "start_time": "07:00",
+        "wz_num": "--",
+        "station_no": "14",
+        "running_time": "40:46"
+      },
+      {
+        "arrive_day_str": "第三日到达",
+        "arrive_time": "09:15",
+        "station_train_code": "Y402",
+        "station_name": "锦州",
+        "arrive_day_diff": "2",
+        "OT": [],
+        "start_time": "09:23",
+        "wz_num": "--",
+        "station_no": "15",
+        "running_time": "43:28"
+      },
+      {
+        "arrive_day_str": "第三日到达",
+        "arrive_time": "10:05",
+        "station_train_code": "Y402",
+        "station_name": "沟帮子",
+        "arrive_day_diff": "2",
+        "OT": [],
+        "start_time": "10:08",
+        "wz_num": "--",
+        "station_no": "16",
+        "running_time": "44:18"
+      },
+      {
+        "arrive_day_str": "第三日到达",
+        "arrive_time": "13:29",
+        "station_train_code": "Y402",
+        "station_name": "沈阳北",
+        "arrive_day_diff": "2",
+        "OT": [],
+        "start_time": "13:39",
+        "wz_num": "--",
+        "station_no": "17",
+        "running_time": "47:42"
+      },
+      {
+        "arrive_day_str": "第三日到达",
+        "arrive_time": "15:41",
+        "station_train_code": "Y402",
+        "station_name": "铁岭",
+        "arrive_day_diff": "2",
+        "OT": [],
+        "start_time": "15:46",
+        "wz_num": "--",
+        "station_no": "18",
+        "running_time": "49:54"
+      },
+      {
+        "arrive_day_str": "第三日到达",
+        "arrive_time": "17:09",
+        "station_train_code": "Y402",
+        "station_name": "四平",
+        "arrive_day_diff": "2",
+        "OT": [],
+        "start_time": "17:12",
+        "wz_num": "--",
+        "station_no": "19",
+        "running_time": "51:22"
+      },
+      {
+        "arrive_day_str": "第三日到达",
+        "arrive_time": "17:45",
+        "station_train_code": "Y402",
+        "station_name": "公主岭",
+        "arrive_day_diff": "2",
+        "OT": [],
+        "start_time": "17:48",
+        "wz_num": "--",
+        "station_no": "20",
+        "running_time": "51:58"
+      },
+      {
+        "arrive_day_str": "第三日到达",
+        "arrive_time": "18:32",
+        "station_train_code": "Y402",
+        "station_name": "长春",
+        "arrive_day_diff": "2",
+        "OT": [],
+        "start_time": "18:32",
+        "wz_num": "--",
+        "station_no": "21",
+        "running_time": "52:45"
+      }
+    ]
+  },
+  {
+    "train_no": "930000Y460Q0",
+    "station_train_codes": "Y457/Y460",
+    "data": [
+      {
+        "arrive_day_str": "当日到达",
+        "station_name": "乌鲁木齐",
+        "train_class_name": "普快",
+        "is_start": "Y",
+        "service_type": "0",
+        "end_station_name": "武昌",
+        "arrive_time": "----",
+        "start_station_name": "乌鲁木齐",
+        "station_train_code": "Y460",
+        "arrive_day_diff": "0",
+        "start_time": "07:30",
+        "station_no": "01",
+        "wz_num": "--",
+        "running_time": "00:00"
+      },
+      {
+        "arrive_day_str": "当日到达",
+        "arrive_time": "16:09",
+        "station_train_code": "Y460",
+        "station_name": "哈密",
+        "arrive_day_diff": "0",
+        "OT": [],
+        "start_time": "16:17",
+        "wz_num": "--",
+        "station_no": "02",
+        "running_time": "08:39"
+      },
+      {
+        "arrive_day_str": "当日到达",
+        "arrive_time": "23:17",
+        "station_train_code": "Y460",
+        "station_name": "嘉峪关南",
+        "arrive_day_diff": "0",
+        "OT": [],
+        "start_time": "23:39",
+        "wz_num": "--",
+        "station_no": "03",
+        "running_time": "15:47"
+      },
+      {
+        "arrive_day_str": "次日到达",
+        "arrive_time": "04:52",
+        "station_train_code": "Y460",
+        "station_name": "西宁",
+        "arrive_day_diff": "1",
+        "OT": [],
+        "start_time": "05:02",
+        "wz_num": "--",
+        "station_no": "04",
+        "running_time": "21:22"
+      },
+      {
+        "arrive_day_str": "次日到达",
+        "arrive_time": "07:17",
+        "station_train_code": "Y460",
+        "station_name": "民和南",
+        "arrive_day_diff": "1",
+        "OT": [],
+        "start_time": "07:37",
+        "wz_num": "--",
+        "station_no": "05",
+        "running_time": "23:47"
+      },
+      {
+        "arrive_day_str": "次日到达",
+        "arrive_time": "08:51",
+        "station_train_code": "Y460",
+        "station_name": "兰州",
+        "arrive_day_diff": "1",
+        "OT": [],
+        "start_time": "09:09",
+        "wz_num": "--",
+        "station_no": "06",
+        "running_time": "25:21"
+      },
+      {
+        "arrive_day_str": "次日到达",
+        "arrive_time": "14:51",
+        "station_train_code": "Y460",
+        "station_name": "天水",
+        "arrive_day_diff": "1",
+        "OT": [],
+        "start_time": "14:58",
+        "wz_num": "--",
+        "station_no": "07",
+        "running_time": "31:21"
+      },
+      {
+        "arrive_day_str": "次日到达",
+        "arrive_time": "17:36",
+        "station_train_code": "Y460",
+        "station_name": "宝鸡",
+        "arrive_day_diff": "1",
+        "OT": [],
+        "start_time": "17:59",
+        "wz_num": "--",
+        "station_no": "08",
+        "running_time": "34:06"
+      },
+      {
+        "arrive_day_str": "次日到达",
+        "arrive_time": "20:25",
+        "station_train_code": "Y460",
+        "station_name": "西安",
+        "arrive_day_diff": "1",
+        "OT": [],
+        "start_time": "20:47",
+        "wz_num": "--",
+        "station_no": "09",
+        "running_time": "36:55"
+      },
+      {
+        "arrive_day_str": "第三日到达",
+        "arrive_time": "01:16",
+        "station_train_code": "Y460",
+        "station_name": "三门峡西",
+        "arrive_day_diff": "2",
+        "OT": [],
+        "start_time": "01:25",
+        "wz_num": "--",
+        "station_no": "10",
+        "running_time": "41:46"
+      },
+      {
+        "arrive_day_str": "第三日到达",
+        "arrive_time": "03:23",
+        "station_train_code": "Y460",
+        "station_name": "洛阳",
+        "arrive_day_diff": "2",
+        "OT": [],
+        "start_time": "03:45",
+        "wz_num": "--",
+        "station_no": "11",
+        "running_time": "43:53"
+      },
+      {
+        "arrive_day_str": "第三日到达",
+        "arrive_time": "07:20",
+        "station_train_code": "Y457",
+        "station_name": "南阳",
+        "arrive_day_diff": "2",
+        "OT": [],
+        "start_time": "07:30",
+        "wz_num": "--",
+        "station_no": "12",
+        "running_time": "47:50"
+      },
+      {
+        "arrive_day_str": "第三日到达",
+        "arrive_time": "08:08",
+        "station_train_code": "Y457",
+        "station_name": "郜营",
+        "arrive_day_diff": "2",
+        "OT": [],
+        "start_time": "08:26",
+        "wz_num": "--",
+        "station_no": "13",
+        "running_time": "48:38"
+      },
+      {
+        "arrive_day_str": "第三日到达",
+        "arrive_time": "08:43",
+        "station_train_code": "Y457",
+        "station_name": "襄阳",
+        "arrive_day_diff": "2",
+        "OT": [],
+        "start_time": "09:08",
+        "wz_num": "--",
+        "station_no": "14",
+        "running_time": "49:13"
+      },
+      {
+        "arrive_day_str": "第三日到达",
+        "arrive_time": "10:28",
+        "station_train_code": "Y457",
+        "station_name": "荆门",
+        "arrive_day_diff": "2",
+        "OT": [],
+        "start_time": "11:06",
+        "wz_num": "--",
+        "station_no": "15",
+        "running_time": "50:58"
+      },
+      {
+        "arrive_day_str": "第三日到达",
+        "arrive_time": "15:23",
+        "station_train_code": "Y457",
+        "station_name": "武昌",
+        "arrive_day_diff": "2",
+        "OT": [],
+        "start_time": "15:23",
+        "wz_num": "--",
+        "station_no": "16",
+        "running_time": "55:53"
+      }
+    ]
+  },
+  {
+    "train_no": "940000Y640U0",
+    "station_train_codes": "Y640",
+    "data": [
+      {
+        "arrive_day_str": "当日到达",
+        "station_name": "喀什",
+        "train_class_name": "普快",
+        "is_start": "Y",
+        "service_type": "0",
+        "end_station_name": "库尔勒",
+        "arrive_time": "----",
+        "start_station_name": "喀什",
+        "station_train_code": "Y640",
+        "arrive_day_diff": "0",
+        "start_time": "22:00",
+        "station_no": "01",
+        "wz_num": "--",
+        "running_time": "00:00"
+      },
+      {
+        "arrive_day_str": "次日到达",
+        "arrive_time": "10:50",
+        "station_train_code": "Y640",
+        "station_name": "库尔勒",
+        "arrive_day_diff": "1",
+        "OT": [],
+        "start_time": "10:50",
+        "wz_num": "--",
+        "station_no": "02",
+        "running_time": "12:50"
+      }
+    ]
+  },
+  {
+    "train_no": "940000Y648M0",
+    "station_train_codes": "Y648",
+    "data": [
+      {
+        "arrive_day_str": "当日到达",
+        "station_name": "库车",
+        "train_class_name": "快速",
+        "is_start": "Y",
+        "service_type": "0",
+        "end_station_name": "哈密",
+        "arrive_time": "----",
+        "start_station_name": "库车",
+        "station_train_code": "Y648",
+        "arrive_day_diff": "0",
+        "start_time": "19:06",
+        "station_no": "01",
+        "wz_num": "--",
+        "running_time": "00:00"
+      },
+      {
+        "arrive_day_str": "当日到达",
+        "arrive_time": "21:45",
+        "station_train_code": "Y648",
+        "station_name": "库尔勒",
+        "arrive_day_diff": "0",
+        "OT": [],
+        "start_time": "22:05",
+        "wz_num": "--",
+        "station_no": "02",
+        "running_time": "02:39"
+      },
+      {
+        "arrive_day_str": "次日到达",
+        "arrive_time": "01:29",
+        "station_train_code": "Y648",
+        "station_name": "吐鲁番",
+        "arrive_day_diff": "1",
+        "OT": [],
+        "start_time": "01:35",
+        "wz_num": "--",
+        "station_no": "03",
+        "running_time": "06:23"
+      },
+      {
+        "arrive_day_str": "次日到达",
+        "arrive_time": "05:50",
+        "station_train_code": "Y648",
+        "station_name": "哈密",
+        "arrive_day_diff": "1",
+        "OT": [],
+        "start_time": "05:50",
+        "wz_num": "--",
+        "station_no": "04",
+        "running_time": "10:44"
+      }
+    ]
+  },
+  {
+    "train_no": "940000Y650G0",
+    "station_train_codes": "Y650",
+    "data": [
+      {
+        "arrive_day_str": "当日到达",
+        "station_name": "库车",
+        "train_class_name": "普快",
+        "is_start": "Y",
+        "service_type": "0",
+        "end_station_name": "哈密",
+        "arrive_time": "----",
+        "start_station_name": "库车",
+        "station_train_code": "Y650",
+        "arrive_day_diff": "0",
+        "start_time": "19:30",
+        "station_no": "01",
+        "wz_num": "--",
+        "running_time": "00:00"
+      },
+      {
+        "arrive_day_str": "次日到达",
+        "arrive_time": "06:20",
+        "station_train_code": "Y650",
+        "station_name": "哈密",
+        "arrive_day_diff": "1",
+        "OT": [],
+        "start_time": "06:20",
+        "wz_num": "--",
+        "station_no": "02",
+        "running_time": "10:50"
+      }
+    ]
+  },
+  {
+    "train_no": "5k0000Y70108",
+    "station_train_codes": "Y701",
+    "data": [
+      {
+        "arrive_day_str": "当日到达",
+        "station_name": "上海西",
+        "train_class_name": "快速",
+        "is_start": "Y",
+        "service_type": "2",
+        "end_station_name": "杭州",
+        "arrive_time": "----",
+        "start_station_name": "上海西",
+        "station_train_code": "Y701",
+        "arrive_day_diff": "0",
+        "start_time": "08:53",
+        "station_no": "01",
+        "wz_num": "--",
+        "running_time": "00:00"
+      },
+      {
+        "arrive_day_str": "当日到达",
+        "arrive_time": "09:33",
+        "station_train_code": "Y701",
+        "station_name": "上海松江",
+        "arrive_day_diff": "0",
+        "OT": [],
+        "start_time": "09:36",
+        "wz_num": "--",
+        "station_no": "02",
+        "running_time": "00:40"
+      },
+      {
+        "arrive_day_str": "当日到达",
+        "arrive_time": "10:10",
+        "station_train_code": "Y701",
+        "station_name": "嘉兴",
+        "arrive_day_diff": "0",
+        "OT": [],
+        "start_time": "10:14",
+        "wz_num": "--",
+        "station_no": "03",
+        "running_time": "01:17"
+      },
+      {
+        "arrive_day_str": "当日到达",
+        "arrive_time": "10:48",
+        "station_train_code": "Y701",
+        "station_name": "海宁",
+        "arrive_day_diff": "0",
+        "OT": [],
+        "start_time": "10:50",
+        "wz_num": "--",
+        "station_no": "04",
+        "running_time": "01:55"
+      },
+      {
+        "arrive_day_str": "当日到达",
+        "arrive_time": "11:32",
+        "station_train_code": "Y701",
+        "station_name": "杭州",
+        "arrive_day_diff": "0",
+        "OT": [],
+        "start_time": "11:32",
+        "wz_num": "--",
+        "station_no": "05",
+        "running_time": "02:39"
+      }
+    ]
+  },
+  {
+    "train_no": "560000Y70208",
+    "station_train_codes": "Y702",
+    "data": [
+      {
+        "arrive_day_str": "当日到达",
+        "station_name": "杭州",
+        "train_class_name": "快速",
+        "is_start": "Y",
+        "service_type": "2",
+        "end_station_name": "上海西",
+        "arrive_time": "----",
+        "start_station_name": "杭州",
+        "station_train_code": "Y702",
+        "arrive_day_diff": "0",
+        "start_time": "15:52",
+        "station_no": "01",
+        "wz_num": "--",
+        "running_time": "00:00"
+      },
+      {
+        "arrive_day_str": "当日到达",
+        "arrive_time": "16:33",
+        "station_train_code": "Y702",
+        "station_name": "海宁",
+        "arrive_day_diff": "0",
+        "OT": [],
+        "start_time": "16:38",
+        "wz_num": "--",
+        "station_no": "02",
+        "running_time": "00:41"
+      },
+      {
+        "arrive_day_str": "当日到达",
+        "arrive_time": "16:56",
+        "station_train_code": "Y702",
+        "station_name": "嘉兴",
+        "arrive_day_diff": "0",
+        "OT": [],
+        "start_time": "17:01",
+        "wz_num": "--",
+        "station_no": "03",
+        "running_time": "01:04"
+      },
+      {
+        "arrive_day_str": "当日到达",
+        "arrive_time": "17:44",
+        "station_train_code": "Y702",
+        "station_name": "上海松江",
+        "arrive_day_diff": "0",
+        "OT": [],
+        "start_time": "17:49",
+        "wz_num": "--",
+        "station_no": "04",
+        "running_time": "01:52"
+      },
+      {
+        "arrive_day_str": "当日到达",
+        "arrive_time": "18:33",
+        "station_train_code": "Y702",
+        "station_name": "上海西",
+        "arrive_day_diff": "0",
+        "OT": [],
+        "start_time": "18:33",
+        "wz_num": "--",
+        "station_no": "05",
+        "running_time": "02:41"
+      }
+    ]
+  },
+  {
+    "train_no": "470000Y73301",
+    "station_train_codes": "Y733",
+    "data": [
+      {
+        "arrive_day_str": "当日到达",
+        "station_name": "济南",
+        "train_class_name": "快速",
+        "is_start": "Y",
+        "service_type": "2",
+        "end_station_name": "枣庄西",
+        "arrive_time": "----",
+        "start_station_name": "济南",
+        "station_train_code": "Y733",
+        "arrive_day_diff": "0",
+        "start_time": "11:00",
+        "station_no": "01",
+        "wz_num": "--",
+        "running_time": "00:00"
+      },
+      {
+        "arrive_day_str": "当日到达",
+        "arrive_time": "11:47",
+        "station_train_code": "Y733",
+        "station_name": "泰山",
+        "arrive_day_diff": "0",
+        "OT": [],
+        "start_time": "11:50",
+        "wz_num": "--",
+        "station_no": "02",
+        "running_time": "00:47"
+      },
+      {
+        "arrive_day_str": "当日到达",
+        "arrive_time": "12:15",
+        "station_train_code": "Y733",
+        "station_name": "磁窑",
+        "arrive_day_diff": "0",
+        "OT": [],
+        "start_time": "12:18",
+        "wz_num": "--",
+        "station_no": "03",
+        "running_time": "01:15"
+      },
+      {
+        "arrive_day_str": "当日到达",
+        "arrive_time": "12:53",
+        "station_train_code": "Y733",
+        "station_name": "兖州",
+        "arrive_day_diff": "0",
+        "OT": [],
+        "start_time": "13:07",
+        "wz_num": "--",
+        "station_no": "04",
+        "running_time": "01:53"
+      },
+      {
+        "arrive_day_str": "当日到达",
+        "arrive_time": "13:23",
+        "station_train_code": "Y733",
+        "station_name": "邹城",
+        "arrive_day_diff": "0",
+        "OT": [],
+        "start_time": "13:34",
+        "wz_num": "--",
+        "station_no": "05",
+        "running_time": "02:23"
+      },
+      {
+        "arrive_day_str": "当日到达",
+        "arrive_time": "14:03",
+        "station_train_code": "Y733",
+        "station_name": "滕州",
+        "arrive_day_diff": "0",
+        "OT": [],
+        "start_time": "14:06",
+        "wz_num": "--",
+        "station_no": "06",
+        "running_time": "03:03"
+      },
+      {
+        "arrive_day_str": "当日到达",
+        "arrive_time": "14:28",
+        "station_train_code": "Y733",
+        "station_name": "枣庄西",
+        "arrive_day_diff": "0",
+        "OT": [],
+        "start_time": "14:28",
+        "wz_num": "--",
+        "station_no": "07",
+        "running_time": "03:28"
+      }
+    ]
+  },
+  {
+    "train_no": "470000Y73621",
+    "station_train_codes": "Y736/Y737",
+    "data": [
+      {
+        "arrive_day_str": "当日到达",
+        "station_name": "枣庄西",
+        "train_class_name": "快速",
+        "is_start": "Y",
+        "service_type": "2",
+        "end_station_name": "威海",
+        "arrive_time": "----",
+        "start_station_name": "枣庄西",
+        "station_train_code": "Y736",
+        "arrive_day_diff": "0",
+        "start_time": "16:49",
+        "station_no": "01",
+        "wz_num": "--",
+        "running_time": "00:00"
+      },
+      {
+        "arrive_day_str": "当日到达",
+        "arrive_time": "17:13",
+        "station_train_code": "Y736",
+        "station_name": "滕州",
+        "arrive_day_diff": "0",
+        "OT": [],
+        "start_time": "17:17",
+        "wz_num": "--",
+        "station_no": "02",
+        "running_time": "00:24"
+      },
+      {
+        "arrive_day_str": "当日到达",
+        "arrive_time": "17:46",
+        "station_train_code": "Y736",
+        "station_name": "邹城",
+        "arrive_day_diff": "0",
+        "OT": [],
+        "start_time": "17:59",
+        "wz_num": "--",
+        "station_no": "03",
+        "running_time": "00:57"
+      },
+      {
+        "arrive_day_str": "当日到达",
+        "arrive_time": "18:14",
+        "station_train_code": "Y736",
+        "station_name": "兖州",
+        "arrive_day_diff": "0",
+        "OT": [],
+        "start_time": "18:17",
+        "wz_num": "--",
+        "station_no": "04",
+        "running_time": "01:25"
+      },
+      {
+        "arrive_day_str": "当日到达",
+        "arrive_time": "18:51",
+        "station_train_code": "Y736",
+        "station_name": "磁窑",
+        "arrive_day_diff": "0",
+        "OT": [],
+        "start_time": "18:54",
+        "wz_num": "--",
+        "station_no": "05",
+        "running_time": "02:02"
+      },
+      {
+        "arrive_day_str": "当日到达",
+        "arrive_time": "19:18",
+        "station_train_code": "Y736",
+        "station_name": "泰山",
+        "arrive_day_diff": "0",
+        "OT": [],
+        "start_time": "19:31",
+        "wz_num": "--",
+        "station_no": "06",
+        "running_time": "02:29"
+      },
+      {
+        "arrive_day_str": "当日到达",
+        "arrive_time": "20:27",
+        "station_train_code": "Y737",
+        "station_name": "济南",
+        "arrive_day_diff": "0",
+        "OT": [],
+        "start_time": "20:42",
+        "wz_num": "--",
+        "station_no": "07",
+        "running_time": "03:38"
+      },
+      {
+        "arrive_day_str": "当日到达",
+        "arrive_time": "21:56",
+        "station_train_code": "Y737",
+        "station_name": "淄博",
+        "arrive_day_diff": "0",
+        "OT": [],
+        "start_time": "21:59",
+        "wz_num": "--",
+        "station_no": "08",
+        "running_time": "05:07"
+      },
+      {
+        "arrive_day_str": "当日到达",
+        "arrive_time": "23:01",
+        "station_train_code": "Y737",
+        "station_name": "潍坊",
+        "arrive_day_diff": "0",
+        "OT": [],
+        "start_time": "23:04",
+        "wz_num": "--",
+        "station_no": "09",
+        "running_time": "06:12"
+      },
+      {
+        "arrive_day_str": "次日到达",
+        "arrive_time": "01:22",
+        "station_train_code": "Y737",
+        "station_name": "莱阳",
+        "arrive_day_diff": "1",
+        "OT": [],
+        "start_time": "01:25",
+        "wz_num": "--",
+        "station_no": "10",
+        "running_time": "08:33"
+      },
+      {
+        "arrive_day_str": "次日到达",
+        "arrive_time": "05:30",
+        "station_train_code": "Y737",
+        "station_name": "威海",
+        "arrive_day_diff": "1",
+        "OT": [],
+        "start_time": "05:30",
+        "wz_num": "--",
+        "station_no": "11",
+        "running_time": "12:41"
+      }
+    ]
+  },
+  {
+    "train_no": "8c0000Y7540B",
+    "station_train_codes": "Y751/Y754",
+    "data": [
+      {
+        "arrive_day_str": "当日到达",
+        "station_name": "丽江",
+        "train_class_name": "快速",
+        "is_start": "Y",
+        "service_type": "2",
+        "end_station_name": "昆明",
+        "arrive_time": "----",
+        "start_station_name": "丽江",
+        "station_train_code": "Y754",
+        "arrive_day_diff": "0",
+        "start_time": "20:40",
+        "station_no": "01",
+        "wz_num": "--",
+        "running_time": "00:00"
+      },
+      {
+        "arrive_day_str": "次日到达",
+        "arrive_time": "05:06",
+        "station_train_code": "Y751",
+        "station_name": "昆明",
+        "arrive_day_diff": "1",
+        "OT": [],
+        "start_time": "05:06",
+        "wz_num": "--",
+        "station_no": "02",
+        "running_time": "08:26"
+      }
+    ]
+  },
+  {
+    "train_no": "800000Y75205",
+    "station_train_codes": "Y752/Y753",
+    "data": [
+      {
+        "arrive_day_str": "当日到达",
+        "station_name": "昆明",
+        "train_class_name": "快速",
+        "is_start": "Y",
+        "service_type": "2",
+        "end_station_name": "丽江",
+        "arrive_time": "----",
+        "start_station_name": "昆明",
+        "station_train_code": "Y752",
+        "arrive_day_diff": "0",
+        "start_time": "21:30",
+        "station_no": "01",
+        "wz_num": "--",
+        "running_time": "00:00"
+      },
+      {
+        "arrive_day_str": "次日到达",
+        "arrive_time": "07:55",
+        "station_train_code": "Y753",
+        "station_name": "丽江",
+        "arrive_day_diff": "1",
+        "OT": [],
+        "start_time": "07:55",
+        "wz_num": "--",
+        "station_no": "05",
+        "running_time": "10:25"
+      }
+    ]
+  },
+  {
+    "train_no": "8c0000Y7581H",
+    "station_train_codes": "Y755/Y758",
+    "data": [
+      {
+        "arrive_day_str": "当日到达",
+        "station_name": "丽江",
+        "train_class_name": "快速",
+        "is_start": "Y",
+        "service_type": "1",
+        "end_station_name": "昆明",
+        "arrive_time": "----",
+        "start_station_name": "丽江",
+        "station_train_code": "Y758",
+        "arrive_day_diff": "0",
+        "start_time": "21:34",
+        "station_no": "01",
+        "wz_num": "--",
+        "running_time": "00:00"
+      },
+      {
+        "arrive_day_str": "次日到达",
+        "arrive_time": "05:15",
+        "station_train_code": "Y758",
+        "station_name": "大理",
+        "arrive_day_diff": "1",
+        "OT": [],
+        "start_time": "05:45",
+        "wz_num": "--",
+        "station_no": "02",
+        "running_time": "07:41"
+      },
+      {
+        "arrive_day_str": "次日到达",
+        "arrive_time": "08:30",
+        "station_train_code": "Y755",
+        "station_name": "昆明",
+        "arrive_day_diff": "1",
+        "OT": [],
+        "start_time": "08:30",
+        "wz_num": "--",
+        "station_no": "03",
+        "running_time": "10:56"
+      }
+    ]
+  },
+  {
+    "train_no": "8c0000Y75902",
+    "station_train_codes": "Y759",
+    "data": [
+      {
+        "arrive_day_str": "当日到达",
+        "station_name": "大理",
+        "train_class_name": "快速",
+        "is_start": "Y",
+        "service_type": "1",
+        "end_station_name": "丽江",
+        "arrive_time": "----",
+        "start_station_name": "大理",
+        "station_train_code": "Y759",
+        "arrive_day_diff": "0",
+        "start_time": "13:40",
+        "station_no": "01",
+        "wz_num": "--",
+        "running_time": "00:00"
+      },
+      {
+        "arrive_day_str": "当日到达",
+        "arrive_time": "17:30",
+        "station_train_code": "Y759",
+        "station_name": "鹤庆",
+        "arrive_day_diff": "0",
+        "OT": [],
+        "start_time": "17:37",
+        "wz_num": "--",
+        "station_no": "02",
+        "running_time": "03:50"
+      },
+      {
+        "arrive_day_str": "当日到达",
+        "arrive_time": "17:59",
+        "station_train_code": "Y759",
+        "station_name": "丽江",
+        "arrive_day_diff": "0",
+        "OT": [],
+        "start_time": "17:59",
+        "wz_num": "--",
+        "station_no": "03",
+        "running_time": "04:19"
+      }
+    ]
+  },
+  {
+    "train_no": "8c0000Y76001",
+    "station_train_codes": "Y760",
+    "data": [
+      {
+        "arrive_day_str": "当日到达",
+        "station_name": "丽江",
+        "train_class_name": "快速",
+        "is_start": "Y",
+        "service_type": "1",
+        "end_station_name": "大理",
+        "arrive_time": "----",
+        "start_station_name": "丽江",
+        "station_train_code": "Y760",
+        "arrive_day_diff": "0",
+        "start_time": "09:40",
+        "station_no": "01",
+        "wz_num": "--",
+        "running_time": "00:00"
+      },
+      {
+        "arrive_day_str": "当日到达",
+        "arrive_time": "10:03",
+        "station_train_code": "Y760",
+        "station_name": "鹤庆",
+        "arrive_day_diff": "0",
+        "OT": [],
+        "start_time": "10:09",
+        "wz_num": "--",
+        "station_no": "02",
+        "running_time": "00:23"
+      },
+      {
+        "arrive_day_str": "当日到达",
+        "arrive_time": "12:39",
+        "station_train_code": "Y760",
+        "station_name": "大理",
+        "arrive_day_diff": "0",
+        "OT": [],
+        "start_time": "12:39",
+        "wz_num": "--",
+        "station_no": "03",
+        "running_time": "02:59"
+      }
+    ]
+  },
+  {
+    "train_no": "940000Y81260",
+    "station_train_codes": "Y812",
+    "data": [
+      {
+        "arrive_day_str": "当日到达",
+        "station_name": "库尔勒",
+        "train_class_name": "普快",
+        "is_start": "Y",
+        "service_type": "0",
+        "end_station_name": "吐鲁番",
+        "arrive_time": "----",
+        "start_station_name": "库尔勒",
+        "station_train_code": "Y812",
+        "arrive_day_diff": "0",
+        "start_time": "11:50",
+        "station_no": "01",
+        "wz_num": "--",
+        "running_time": "00:00"
+      },
+      {
+        "arrive_day_str": "当日到达",
+        "arrive_time": "15:10",
+        "station_train_code": "Y812",
+        "station_name": "吐鲁番",
+        "arrive_day_diff": "0",
+        "OT": [],
+        "start_time": "15:10",
+        "wz_num": "--",
+        "station_no": "02",
+        "running_time": "03:20"
+      }
+    ]
+  },
+  {
+    "train_no": "880000Y83710",
+    "station_train_codes": "Y837",
+    "data": [
+      {
+        "arrive_day_str": "当日到达",
+        "station_name": "西宁",
+        "train_class_name": "快速",
+        "is_start": "Y",
+        "service_type": "2",
+        "end_station_name": "茶卡",
+        "arrive_time": "----",
+        "start_station_name": "西宁",
+        "station_train_code": "Y837",
+        "arrive_day_diff": "0",
+        "start_time": "09:00",
+        "station_no": "01",
+        "wz_num": "--",
+        "running_time": "00:00"
+      },
+      {
+        "arrive_day_str": "当日到达",
+        "arrive_time": "13:23",
+        "station_train_code": "Y837",
+        "station_name": "茶卡",
+        "arrive_day_diff": "0",
+        "OT": [],
+        "start_time": "13:23",
+        "wz_num": "--",
+        "station_no": "02",
+        "running_time": "04:23"
+      }
+    ]
+  },
+  {
+    "train_no": "880000Y83800",
+    "station_train_codes": "Y838",
+    "data": [
+      {
+        "arrive_day_str": "当日到达",
+        "station_name": "茶卡",
+        "train_class_name": "快速",
+        "is_start": "Y",
+        "service_type": "2",
+        "end_station_name": "西宁",
+        "arrive_time": "----",
+        "start_station_name": "茶卡",
+        "station_train_code": "Y838",
+        "arrive_day_diff": "0",
+        "start_time": "17:40",
+        "station_no": "01",
+        "wz_num": "--",
+        "running_time": "00:00"
+      },
+      {
+        "arrive_day_str": "当日到达",
+        "arrive_time": "22:50",
+        "station_train_code": "Y838",
+        "station_name": "西宁",
+        "arrive_day_diff": "0",
+        "OT": [],
+        "start_time": "22:50",
+        "wz_num": "--",
+        "station_no": "02",
+        "running_time": "05:10"
+      }
+    ]
+  },
+  {
+    "train_no": "880000Y83900",
+    "station_train_codes": "Y839",
+    "data": [
+      {
+        "arrive_day_str": "当日到达",
+        "station_name": "西宁",
+        "train_class_name": "直特",
+        "is_start": "Y",
+        "service_type": "2",
+        "end_station_name": "拉萨",
+        "arrive_time": "----",
+        "start_station_name": "西宁",
+        "station_train_code": "Y839",
+        "arrive_day_diff": "0",
+        "start_time": "20:50",
+        "station_no": "01",
+        "wz_num": "--",
+        "running_time": "00:00"
+      },
+      {
+        "arrive_day_str": "次日到达",
+        "arrive_time": "02:50",
+        "station_train_code": "Y839",
+        "station_name": "格尔木",
+        "arrive_day_diff": "1",
+        "OT": [],
+        "start_time": "03:15",
+        "wz_num": "--",
+        "station_no": "02",
+        "running_time": "06:00"
+      },
+      {
+        "arrive_day_str": "次日到达",
+        "arrive_time": "13:06",
+        "station_train_code": "Y839",
+        "station_name": "那曲",
+        "arrive_day_diff": "1",
+        "OT": [],
+        "start_time": "13:12",
+        "wz_num": "--",
+        "station_no": "03",
+        "running_time": "16:16"
+      },
+      {
+        "arrive_day_str": "次日到达",
+        "arrive_time": "17:06",
+        "station_train_code": "Y839",
+        "station_name": "拉萨",
+        "arrive_day_diff": "1",
+        "OT": [],
+        "start_time": "17:06",
+        "wz_num": "--",
+        "station_no": "04",
+        "running_time": "20:16"
+      }
+    ]
+  },
+  {
+    "train_no": "880000Y84010",
+    "station_train_codes": "Y840",
+    "data": [
+      {
+        "arrive_day_str": "当日到达",
+        "station_name": "拉萨",
+        "train_class_name": "直特",
+        "is_start": "Y",
+        "service_type": "2",
+        "end_station_name": "西宁",
+        "arrive_time": "----",
+        "start_station_name": "拉萨",
+        "station_train_code": "Y840",
+        "arrive_day_diff": "0",
+        "start_time": "10:30",
+        "station_no": "01",
+        "wz_num": "--",
+        "running_time": "00:00"
+      },
+      {
+        "arrive_day_str": "当日到达",
+        "arrive_time": "14:24",
+        "station_train_code": "Y840",
+        "station_name": "那曲",
+        "arrive_day_diff": "0",
+        "OT": [],
+        "start_time": "14:40",
+        "wz_num": "--",
+        "station_no": "02",
+        "running_time": "03:54"
+      },
+      {
+        "arrive_day_str": "次日到达",
+        "arrive_time": "00:28",
+        "station_train_code": "Y840",
+        "station_name": "格尔木",
+        "arrive_day_diff": "1",
+        "OT": [],
+        "start_time": "00:53",
+        "wz_num": "--",
+        "station_no": "03",
+        "running_time": "13:58"
+      },
+      {
+        "arrive_day_str": "次日到达",
+        "arrive_time": "08:00",
+        "station_train_code": "Y840",
+        "station_name": "西宁",
+        "arrive_day_diff": "1",
+        "OT": [],
+        "start_time": "08:00",
+        "wz_num": "--",
+        "station_no": "04",
+        "running_time": "21:30"
+      }
+    ]
+  }
+]

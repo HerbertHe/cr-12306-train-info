@@ -1,0 +1,22 @@
+{
+  "date": "2026-06-17",
+  "all12306": {
+    "successfulHttpResponses": 11142,
+    "entriesInPermanentFailQueue": 0,
+    "recordSum": 11142
+  },
+  "trainList": {
+    "requested": 345,
+    "success": 332,
+    "failed": 0
+  },
+  "trainDetail": {
+    "requested": 10810,
+    "success": 10810,
+    "failed": 0,
+    "compensated": 0,
+    "plannedDistinctTrainNumbers": 10810,
+    "distinctTrainsFilledByApi": 10810,
+    "distinctTrainsStillMissingAfterCompensation": 0
+  }
+}
